@@ -29,10 +29,6 @@ export function getBreathingPhase(elapsedSeconds) {
   return { name: "contract", progress: 0 };
 }
 
-function round(value) {
-  return Math.round(value * 100) / 100;
-}
-
 function smoothstep(value) {
   return value * value * (3 - 2 * value);
 }
@@ -47,9 +43,9 @@ export function getStarfieldState(phase) {
   if (phase?.name === "contract") {
     const gather = smoothstep(progress);
     return {
-      scale: round(1 - gather * 0.66),
-      corePull: round(gather * 0.78),
-      glow: round(1 + gather * 0.68),
+      scale: 1 - gather * 0.66,
+      corePull: gather * 0.78,
+      glow: 1 + gather * 0.68,
     };
   }
 
@@ -64,9 +60,9 @@ export function getStarfieldState(phase) {
   if (phase?.name === "expand") {
     const release = easeInOutSine(progress);
     return {
-      scale: round(0.34 + release * 0.72),
-      corePull: round((1 - release) * 0.78),
-      glow: round(1.68 - release * 0.44),
+      scale: 0.34 + release * 0.66,
+      corePull: (1 - release) * 0.78,
+      glow: 1.68 - release * 0.68,
     };
   }
 
@@ -78,5 +74,8 @@ export function getStarfieldState(phase) {
 }
 
 export function getParticleAngle({ baseAngle, timeSeconds, speed, distance }) {
-  return baseAngle + timeSeconds * speed * (0.34 + distance);
+  void timeSeconds;
+  void speed;
+  void distance;
+  return baseAngle;
 }

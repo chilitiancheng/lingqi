@@ -30,20 +30,30 @@ function resize() {
 }
 
 function buildParticles() {
-  const count = Math.min(380, Math.max(190, Math.floor((window.innerWidth * window.innerHeight) / 3300)));
-  particles = Array.from({ length: count }, () => {
-    const angle = Math.random() * Math.PI * 2;
-    const distance = Math.sqrt(Math.random());
-    return {
+  const count = Math.min(340, Math.max(180, Math.floor((window.innerWidth * window.innerHeight) / 3700)));
+  const pairCount = Math.floor(count / 2);
+  particles = [];
+  const goldenAngle = Math.PI * (3 - Math.sqrt(5));
+
+  for (let index = 0; index < pairCount; index += 1) {
+    const sequence = (index + 0.5) / pairCount;
+    const angle = index * goldenAngle;
+    const distance = Math.sqrt(sequence);
+    const particle = {
       angle,
       distance,
-      orbit: Math.random() * Math.PI * 2,
-      size: 0.38 + Math.random() * 1.18,
+      orbit: angle,
+      size: 0.42,
       speed: 0.06 + Math.random() * 0.16,
-      alpha: 0.26 + Math.random() * 0.58,
-      coreBias: Math.random(),
+      alpha: 0.52,
+      coreBias: sequence,
     };
-  });
+
+    particles.push(particle, {
+      ...particle,
+      angle: angle + Math.PI,
+    });
+  }
 }
 
 function ensureAudio() {
@@ -101,19 +111,26 @@ function draw(time) {
   }
 
   for (const p of particles) {
-    const drift = Math.sin(timeSeconds * p.speed + p.orbit) * 0.028;
+    const drift = 0;
     const looseRadius = maxRadius * (0.14 + (p.distance + drift) * 0.86) * starfield.scale;
-    const coreRadius = maxRadius * (0.03 + p.coreBias * 0.18) * (0.72 + Math.sin(timeSeconds * 0.9 + p.orbit) * 0.04);
+    const coreRadius = maxRadius * (0.03 + p.coreBias * 0.18) * 0.72;
     const radius = looseRadius * (1 - starfield.corePull) + coreRadius * starfield.corePull;
     const angle = getParticleAngle({ baseAngle: p.angle, timeSeconds, speed: p.speed, distance: p.distance });
+    const renderCorePull = phase.name === "expand" ? 0.78 : starfield.corePull;
+    const renderGlow = phase.name === "expand" ? 1.68 : starfield.glow;
     const x = cx + Math.cos(angle) * radius;
-    const y = cy + Math.sin(angle) * radius * (0.64 - starfield.corePull * 0.24);
-    const glow = p.size * starfield.glow * (1 + starfield.corePull * (1 - p.distance) * 0.48);
+    const y = cy + Math.sin(angle) * radius * (0.64 - renderCorePull * 0.24);
+    const glow = p.size * renderGlow * (1 + renderCorePull * (1 - p.distance) * 0.48);
+    const softRadius = glow * 4.8;
+    const gradient = ctx.createRadialGradient(x, y, 0, x, y, softRadius);
+    gradient.addColorStop(0, `rgba(255, 255, 255, ${p.alpha})`);
+    gradient.addColorStop(0.36, `rgba(255, 255, 255, ${p.alpha * 0.22})`);
+    gradient.addColorStop(1, "rgba(255, 255, 255, 0)");
     ctx.beginPath();
-    ctx.fillStyle = STARFIELD_COLOR.fill.replace("alpha", p.alpha.toFixed(3));
+    ctx.fillStyle = gradient;
     ctx.shadowColor = STARFIELD_COLOR.shadow;
-    ctx.shadowBlur = 13 + starfield.corePull * 30;
-    ctx.arc(x, y, glow, 0, Math.PI * 2);
+    ctx.shadowBlur = 8 + renderCorePull * 16;
+    ctx.arc(x, y, softRadius, 0, Math.PI * 2);
     ctx.fill();
   }
 
