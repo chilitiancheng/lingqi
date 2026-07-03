@@ -2,7 +2,6 @@
   color-scheme: dark;
   font-family: "Inter", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
   background: #000;
-  --breath-scale: 1;
 }
 
 * {
@@ -29,33 +28,18 @@ button {
   height: 100vh;
   height: 100dvh;
   display: grid;
-  grid-template-rows: 68px minmax(0, 1fr) 86px;
+  grid-template-rows: minmax(0, 1fr);
   overflow: hidden;
   color: #f8fafc;
   background:
-    radial-gradient(circle at 50% 74%, rgba(255, 255, 255, 0.08), transparent 24%),
-    radial-gradient(circle at 50% 30%, rgba(255, 255, 255, 0.045), transparent 34%),
+    radial-gradient(circle at 50% 52%, rgba(255, 255, 255, 0.045), transparent 28%),
+    radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.025), transparent 52%),
     #000;
-}
-
-.draw-topbar {
-  z-index: 5;
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  padding: 16px 24px 8px;
-}
-
-.brand-mark {
-  font-size: 15px;
-  font-weight: 300;
-  letter-spacing: 0.28em;
-  color: rgba(255, 255, 255, 0.58);
 }
 
 .draw-sky {
   position: relative;
-  grid-row: 2;
+  grid-row: 1;
   min-height: 0;
   overflow: hidden;
 }
@@ -67,32 +51,13 @@ button {
   height: 100%;
 }
 
-.draw-sky::before,
-.draw-sky::after {
-  content: "";
-  position: absolute;
-  left: 50%;
-  top: 56%;
-  width: min(780px, 120vw);
-  aspect-ratio: 1;
-  border: 1px solid rgba(255, 255, 255, 0.055);
-  border-radius: 50%;
-  transform: translate(-50%, -50%) scale(var(--breath-scale));
-  pointer-events: none;
-}
-
-.draw-sky::after {
-  width: min(420px, 74vw);
-  border-color: rgba(255, 255, 255, 0.11);
-}
-
 .draw-fate-line {
   position: absolute;
   left: 50%;
-  top: 58%;
+  top: 52%;
   z-index: 3;
-  width: min(980px, 132vw);
-  height: 168px;
+  width: min(520px, 88vw);
+  height: 220px;
   transform: translate(-50%, -50%);
   border: 0;
   background: transparent;
@@ -102,44 +67,16 @@ button {
   -webkit-tap-highlight-color: transparent;
 }
 
-.draw-strands {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  opacity: 0.92;
-  background:
-    radial-gradient(ellipse at 50% 50%, rgba(255, 255, 255, 0.2), transparent 35%),
-    repeating-linear-gradient(0deg, transparent 0 31px, rgba(255, 255, 255, 0.12) 32px, transparent 34px);
-  mask-image: radial-gradient(ellipse at 50% 50%, #000 0 44%, transparent 69%);
-  transform: scaleX(1.1);
-}
-
-.draw-strands::before,
-.draw-strands::after {
-  content: "";
-  position: absolute;
-  inset: 20px 0;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.86), transparent);
-  clip-path: polygon(0 44%, 16% 38%, 32% 48%, 50% 42%, 68% 52%, 84% 43%, 100% 49%, 100% 55%, 84% 49%, 68% 58%, 50% 48%, 32% 54%, 16% 44%, 0 51%);
-  filter: drop-shadow(0 0 14px rgba(255, 255, 255, 0.52));
-}
-
-.draw-strands::after {
-  inset: 42px 0;
-  opacity: 0.58;
-  transform: scaleY(-1);
-}
-
 .draw-center-copy {
   position: absolute;
   z-index: 4;
   left: 50%;
-  top: 32%;
+  top: 43%;
   width: min(420px, calc(100% - 32px));
-  transform: translateX(-50%);
+  transform: translate(-50%, -50%);
   display: grid;
   justify-items: center;
-  gap: 13px;
+  gap: 15px;
   pointer-events: none;
   text-align: center;
 }
@@ -147,161 +84,17 @@ button {
 .draw-center-copy strong {
   font-size: 20px;
   font-weight: 300;
-  letter-spacing: 0.34em;
-  color: rgba(255, 255, 255, 0.78);
+  letter-spacing: 0.42em;
+  color: rgba(255, 255, 255, 0.82);
 }
 
 .draw-center-copy span {
   font-size: 12px;
-  letter-spacing: 0.38em;
-  color: rgba(255, 255, 255, 0.36);
-}
-
-.draw-foreground-planet {
-  --draw-planet-core: rgba(255, 255, 255, 1);
-  --draw-planet-mid: rgba(255, 255, 255, 0.72);
-  --draw-planet-fade: rgba(255, 255, 255, 0.22);
-  --draw-planet-glow: rgba(255, 255, 255, 0.48);
-  --draw-planet-glow-wide: rgba(255, 255, 255, 0.18);
-  --draw-orbit-core: #ffffff;
-  --draw-orbit-mid: rgba(255, 255, 255, 0.72);
-  position: absolute;
-  z-index: 2;
-  left: 50%;
-  top: 56%;
-  width: clamp(118px, 28vw, 238px);
-  aspect-ratio: 1;
-  border-radius: 50%;
-  pointer-events: none;
-  background: radial-gradient(circle at 50% 50%, var(--draw-planet-core) 0 16%, var(--draw-planet-mid) 27%, var(--draw-planet-fade) 48%, transparent 68%);
-  box-shadow:
-    0 0 28px var(--draw-planet-glow),
-    0 0 92px var(--draw-planet-glow-wide);
-  opacity: 0.68;
-  transform: translate(-50%, -50%) scale(calc(var(--breath-scale) * 0.74));
-  transition: transform 180ms linear;
-}
-
-body[data-phase="hold"] .draw-foreground-planet {
-  opacity: 0.82;
-}
-
-.draw-planet-orbit,
-.draw-orbit-runner {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-}
-
-.draw-planet-orbit {
-  z-index: -1;
-  width: clamp(132px, 32vw, 260px);
-  height: clamp(66px, 16vw, 130px);
-  border: 1px solid rgba(255, 255, 255, 0.72);
-  border-radius: 50%;
-  opacity: 1;
-  transform: translate(-50%, -50%) rotate(30deg);
-}
-
-.draw-orbit-runner {
-  width: clamp(132px, 32vw, 260px);
-  height: clamp(66px, 16vw, 130px);
-  transform: translate(-50%, -50%) rotate(30deg);
-}
-
-.draw-orbit-plane {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: clamp(132px, 32vw, 260px);
-  aspect-ratio: 1;
-  transform: translate(-50%, -50%) scaleY(0.5);
-  transform-origin: center center;
-  animation: drawOrbitPlane 2.35s linear infinite;
-}
-
-.draw-orbit-particle {
-  position: absolute;
-  left: 100%;
-  top: 50%;
-  width: clamp(10px, 2.7vw, 18px);
-  aspect-ratio: 1;
-  border-radius: 50%;
-  background: radial-gradient(circle at 50% 50%, var(--draw-orbit-core) 0 58%, var(--draw-orbit-mid) 70%, transparent 72%);
-  transform: translate(-50%, -50%);
-  animation: drawOrbitParticle 2.35s linear infinite;
-}
-
-@keyframes drawOrbitParticle {
-  from {
-    transform: translate(-50%, -50%) rotate(0deg) scaleY(2);
-  }
-  to {
-    transform: translate(-50%, -50%) rotate(-360deg) scaleY(2);
-  }
-}
-
-@keyframes drawOrbitPlane {
-  from {
-    transform: translate(-50%, -50%) scaleY(0.5) rotate(0deg);
-  }
-  to {
-    transform: translate(-50%, -50%) scaleY(0.5) rotate(360deg);
-  }
-}
-
-.draw-bottom-nav {
-  grid-row: 3;
-  z-index: 5;
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  align-items: stretch;
-  border-top: 1px solid rgba(255, 255, 255, 0.055);
-  background: rgba(5, 6, 12, 0.86);
-  height: 86px;
-}
-
-.draw-bottom-nav span {
-  display: grid;
-  place-items: center;
-  align-content: center;
-  gap: 4px;
-  color: rgba(255, 255, 255, 0.48);
-  font-size: 14px;
-  font-weight: 800;
-}
-
-.draw-bottom-nav strong {
-  color: rgba(255, 255, 255, 0.96);
-  font-size: 20px;
-  line-height: 1;
-}
-
-.draw-bottom-nav em {
-  font-style: normal;
-  letter-spacing: 0.16em;
-}
-
-body[data-phase="contract"] .draw-bottom-nav span:nth-child(1),
-body[data-phase="hold"] .draw-bottom-nav span:nth-child(2),
-body[data-phase="expand"] .draw-bottom-nav span:nth-child(3) {
-  color: rgba(255, 255, 255, 0.96);
-  text-shadow: 0 0 18px rgba(255, 255, 255, 0.62);
+  letter-spacing: 0.32em;
+  color: rgba(255, 255, 255, 0.34);
 }
 
 @media (max-width: 560px) {
-  .draw-modal {
-    grid-template-rows: 58px minmax(0, 1fr) 78px;
-  }
-
-  .draw-topbar {
-    padding: 14px 18px 6px;
-  }
-
-  .draw-center-copy {
-    top: 29%;
-  }
-
   .draw-center-copy strong {
     font-size: 17px;
     letter-spacing: 0.24em;
@@ -313,11 +106,6 @@ body[data-phase="expand"] .draw-bottom-nav span:nth-child(3) {
   }
 
   .draw-fate-line {
-    top: 59%;
-    height: 142px;
-  }
-
-  .draw-bottom-nav {
-    height: 78px;
+    height: 180px;
   }
 }

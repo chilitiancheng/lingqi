@@ -1,11 +1,10 @@
-import { getBreathingPhase } from "./breathingCycle.js";
+import { getBreathingPhase, getStarfieldState } from "./breathingCycle.js";
 
 const canvas = document.querySelector("#starfield");
 const ctx = canvas.getContext("2d", { alpha: true });
 const enterButton = document.querySelector("#enterButton");
 const phaseLabel = document.querySelector("#phaseLabel");
 const phaseHint = document.querySelector("#phaseHint");
-const ring = document.querySelector("#breathRing");
 
 const phaseCopy = {
   idle: ["浸入灵栖", "TOUCH TO ENTER LINGQI"],
@@ -31,7 +30,7 @@ function resize() {
 }
 
 function buildParticles() {
-  const count = Math.min(360, Math.max(180, Math.floor((window.innerWidth * window.innerHeight) / 3600)));
+  const count = Math.min(520, Math.max(260, Math.floor((window.innerWidth * window.innerHeight) / 2400)));
   particles = Array.from({ length: count }, (_, index) => {
     const angle = Math.random() * Math.PI * 2;
     const distance = Math.sqrt(Math.random());
@@ -41,8 +40,9 @@ function buildParticles() {
       orbit: Math.random() * Math.PI * 2,
       size: 0.7 + Math.random() * 2.1,
       speed: 0.06 + Math.random() * 0.16,
-      hue: index % 6 === 0 ? 44 : index % 4 === 0 ? 205 : 0,
-      alpha: 0.38 + Math.random() * 0.62,
+      hue: index % 13 === 0 ? 42 : 0,
+      alpha: 0.26 + Math.random() * 0.58,
+      coreBias: Math.random(),
     };
   });
 }
@@ -79,13 +79,6 @@ function setCopy(phaseName) {
   document.body.dataset.phase = phaseName;
 }
 
-function phaseScale(phase) {
-  if (!running) return 1;
-  if (phase.name === "contract") return 1 - phase.progress * 0.42;
-  if (phase.name === "hold") return 0.58;
-  return 0.58 + phase.progress * 0.58;
-}
-
 function draw(time) {
   const width = window.innerWidth;
   const height = window.innerHeight;
@@ -95,10 +88,10 @@ function draw(time) {
 
   const elapsed = running ? (time - startTime) / 1000 : 0;
   const phase = running ? getBreathingPhase(elapsed) : { name: "idle", progress: 0 };
-  const scale = phaseScale(phase);
+  const starfield = getStarfieldState(phase);
   const cx = width / 2;
-  const cy = height * 0.56;
-  const maxRadius = Math.min(width, height) * 0.54;
+  const cy = height * 0.6;
+  const maxRadius = Math.min(width, height) * 0.66;
   const timeSeconds = time * 0.001;
 
   if (running && phase.name !== lastPhase) {
@@ -108,19 +101,19 @@ function draw(time) {
     setCopy(phase.name);
   }
 
-  ring.style.setProperty("--breath-scale", scale.toFixed(3));
-
   for (const p of particles) {
-    const drift = Math.sin(timeSeconds * p.speed + p.orbit) * 0.035;
-    const radius = maxRadius * (0.22 + (p.distance + drift) * 0.78) * scale;
-    const angle = p.angle + timeSeconds * p.speed * (0.34 + p.distance);
+    const drift = Math.sin(timeSeconds * p.speed + p.orbit) * 0.028;
+    const looseRadius = maxRadius * (0.14 + (p.distance + drift) * 0.86) * starfield.scale;
+    const coreRadius = maxRadius * (0.01 + p.coreBias * 0.095) * (0.68 + Math.sin(timeSeconds * 0.9 + p.orbit) * 0.035);
+    const radius = looseRadius * (1 - starfield.corePull) + coreRadius * starfield.corePull;
+    const angle = p.angle + timeSeconds * p.speed * (0.34 + p.distance) * (1 + starfield.corePull * 0.8);
     const x = cx + Math.cos(angle) * radius;
-    const y = cy + Math.sin(angle) * radius * 0.62;
-    const glow = p.size * (running && phase.name === "hold" ? 1.35 : 1);
+    const y = cy + Math.sin(angle) * radius * (0.64 - starfield.corePull * 0.24);
+    const glow = p.size * starfield.glow * (1 + starfield.corePull * (1 - p.distance) * 0.72);
     ctx.beginPath();
-    ctx.fillStyle = `hsla(${p.hue}, ${p.hue === 0 ? 0 : 80}%, ${p.hue === 44 ? 72 : 92}%, ${p.alpha})`;
-    ctx.shadowColor = p.hue === 44 ? "rgba(255, 226, 142, 0.42)" : "rgba(255, 255, 255, 0.46)";
-    ctx.shadowBlur = 11;
+    ctx.fillStyle = `hsla(${p.hue}, ${p.hue === 0 ? 0 : 54}%, ${p.hue === 42 ? 78 : 94}%, ${p.alpha})`;
+    ctx.shadowColor = p.hue === 42 ? "rgba(255, 232, 168, 0.28)" : "rgba(255, 255, 255, 0.34)";
+    ctx.shadowBlur = 7 + starfield.corePull * 15;
     ctx.arc(x, y, glow, 0, Math.PI * 2);
     ctx.fill();
   }
