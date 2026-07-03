@@ -33,8 +33,8 @@ function round(value) {
   return Math.round(value * 100) / 100;
 }
 
-function easeOutCubic(value) {
-  return 1 - (1 - value) ** 3;
+function smoothstep(value) {
+  return value * value * (3 - 2 * value);
 }
 
 function easeInOutSine(value) {
@@ -45,20 +45,19 @@ export function getStarfieldState(phase) {
   const progress = Math.max(0, Math.min(1, phase?.progress ?? 0));
 
   if (phase?.name === "contract") {
-    const gather = easeOutCubic(progress);
+    const gather = smoothstep(progress);
     return {
       scale: round(1 - gather * 0.66),
-      corePull: round(gather * 0.82),
-      glow: round(1 + gather * 1.05),
+      corePull: round(gather * 0.78),
+      glow: round(1 + gather * 0.68),
     };
   }
 
   if (phase?.name === "hold") {
-    const pulse = Math.sin(progress * Math.PI * 2);
     return {
-      scale: round(0.34 + pulse * 0.025),
-      corePull: round(0.78 + Math.abs(pulse) * 0.04),
-      glow: round(1.68 + Math.abs(pulse) * 0.1),
+      scale: 0.34,
+      corePull: 0.78,
+      glow: 1.68,
     };
   }
 
