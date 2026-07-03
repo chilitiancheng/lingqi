@@ -24,9 +24,9 @@ test("maps breathing phases to minimal starfield gather states", () => {
     glow: 1,
   });
   assert.deepEqual(getStarfieldState({ name: "contract", progress: 0.5 }), {
-    scale: 0.42,
-    corePull: 0.72,
-    glow: 1.92,
+    scale: 0.67,
+    corePull: 0.39,
+    glow: 1.34,
   });
   assert.deepEqual(getStarfieldState({ name: "hold", progress: 0.5 }), {
     scale: 0.34,
@@ -38,6 +38,18 @@ test("maps breathing phases to minimal starfield gather states", () => {
     corePull: 0.39,
     glow: 1.46,
   });
+});
+
+test("keeps the starfield stable at the hold to exhale boundary", () => {
+  assert.deepEqual(getStarfieldState({ name: "contract", progress: 1 }), {
+    scale: 0.34,
+    corePull: 0.78,
+    glow: 1.68,
+  });
+  assert.deepEqual(
+    getStarfieldState({ name: "hold", progress: 0.999 }),
+    getStarfieldState({ name: "expand", progress: 0 })
+  );
 });
 
 test("keeps the starfield particle palette uniformly white", () => {

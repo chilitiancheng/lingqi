@@ -82,7 +82,7 @@ function draw(time) {
   const width = window.innerWidth;
   const height = window.innerHeight;
   ctx.clearRect(0, 0, width, height);
-  ctx.fillStyle = "rgba(0, 0, 0, 0.58)";
+  ctx.fillStyle = "#000000";
   ctx.fillRect(0, 0, width, height);
 
   const elapsed = running ? (time - startTime) / 1000 : 0;
