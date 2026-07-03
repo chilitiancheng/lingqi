@@ -1,4 +1,4 @@
-import { getBreathingPhase, getStarfieldState, STARFIELD_COLOR } from "./breathingCycle.js";
+import { getBreathingPhase, getParticleAngle, getStarfieldState, STARFIELD_COLOR } from "./breathingCycle.js";
 
 const canvas = document.querySelector("#starfield");
 const ctx = canvas.getContext("2d", { alpha: true });
@@ -105,7 +105,7 @@ function draw(time) {
     const looseRadius = maxRadius * (0.14 + (p.distance + drift) * 0.86) * starfield.scale;
     const coreRadius = maxRadius * (0.03 + p.coreBias * 0.18) * (0.72 + Math.sin(timeSeconds * 0.9 + p.orbit) * 0.04);
     const radius = looseRadius * (1 - starfield.corePull) + coreRadius * starfield.corePull;
-    const angle = p.angle + timeSeconds * p.speed * (0.34 + p.distance) * (1 + starfield.corePull * 0.8);
+    const angle = getParticleAngle({ baseAngle: p.angle, timeSeconds, speed: p.speed, distance: p.distance });
     const x = cx + Math.cos(angle) * radius;
     const y = cy + Math.sin(angle) * radius * (0.64 - starfield.corePull * 0.24);
     const glow = p.size * starfield.glow * (1 + starfield.corePull * (1 - p.distance) * 0.48);

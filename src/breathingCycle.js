@@ -76,3 +76,7 @@ export function getStarfieldState(phase) {
     glow: 1,
   };
 }
+
+export function getParticleAngle({ baseAngle, timeSeconds, speed, distance }) {
+  return baseAngle + timeSeconds * speed * (0.34 + distance);
+}

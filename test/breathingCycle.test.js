@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { getBreathingPhase, getStarfieldState, STARFIELD_COLOR } from "../src/breathingCycle.js";
+import { getBreathingPhase, getParticleAngle, getStarfieldState, STARFIELD_COLOR } from "../src/breathingCycle.js";
 
 test("maps elapsed time to the 4-7-8 breathing phases", () => {
   assert.deepEqual(getBreathingPhase(0), { name: "contract", progress: 0 });
@@ -57,4 +57,12 @@ test("keeps the starfield particle palette uniformly white", () => {
     fill: "rgba(255, 255, 255, alpha)",
     shadow: "rgba(255, 255, 255, 0.46)",
   });
+});
+
+test("keeps particle orbit angle independent from breathing state", () => {
+  assert.equal(
+    getParticleAngle({ baseAngle: 1, timeSeconds: 12, speed: 0.1, distance: 0.5 }),
+    getParticleAngle({ baseAngle: 1, timeSeconds: 12, speed: 0.1, distance: 0.5 })
+  );
+  assert.equal(getParticleAngle({ baseAngle: 1, timeSeconds: 12, speed: 0.1, distance: 0.5 }), 2.008);
 });
