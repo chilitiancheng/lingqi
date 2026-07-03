@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>灵栖</title>
+    <link rel="stylesheet" href="./src/styles.css" />
+  </head>
+  <body>
+    <main class="draw-modal" aria-label="灵栖主界面">
+      <div class="draw-topbar">
+        <span class="brand-mark">灵栖</span>
+      </div>
+      <section class="draw-sky">
+        <canvas id="starfield" class="draw-particles" aria-hidden="true"></canvas>
+        <button id="enterButton" class="draw-fate-line" type="button" aria-pressed="false" aria-label="浸入灵栖">
+          <span class="draw-strands" aria-hidden="true"></span>
+        </button>
+        <span id="breathRing" class="draw-foreground-planet" aria-hidden="true">
+          <span class="draw-planet-orbit"></span>
+          <span class="draw-orbit-runner">
+            <span class="draw-orbit-plane">
+              <span class="draw-orbit-particle"></span>
+            </span>
+          </span>
+        </span>
+        <div class="draw-center-copy" aria-live="polite">
+          <strong id="phaseLabel">浸入灵栖</strong>
+          <span id="phaseHint">TOUCH TO ENTER LINGQI</span>
+        </div>
+      </section>
+      <nav class="draw-bottom-nav" aria-label="灵栖呼吸节奏">
+        <span><strong>4s</strong><em>收缩</em></span>
+        <span><strong>7s</strong><em>停止</em></span>
+        <span><strong>8s</strong><em>散开</em></span>
+      </nav>
+    </main>
+    <script type="module" src="./src/app.js"></script>
+  </body>
+</html>
