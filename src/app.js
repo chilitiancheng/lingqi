@@ -2,7 +2,6 @@ import { getBreathingPhase, getParticleAngle, getStarfieldState, STARFIELD_COLOR
 
 const canvas = document.querySelector("#starfield");
 const ctx = canvas.getContext("2d", { alpha: true });
-const exhaleLayer = document.querySelector("#exhaleLayer");
 const enterButton = document.querySelector("#enterButton");
 const phaseLabel = document.querySelector("#phaseLabel");
 const phaseHint = document.querySelector("#phaseHint");
@@ -18,10 +17,6 @@ let running = false;
 let startTime = 0;
 let lastPhase = "idle";
 let particles = [];
-let starfieldLayer = null;
-let layerWidth = 0;
-let layerHeight = 0;
-let exhaleActive = false;
 let audioContext = null;
 
 function resize() {
@@ -32,7 +27,6 @@ function resize() {
   canvas.style.height = `${window.innerHeight}px`;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   buildParticles();
-  buildStarfieldLayer();
 }
 
 function buildParticles() {
@@ -59,75 +53,6 @@ function buildParticles() {
       ...particle,
       angle: angle + Math.PI,
     });
-  }
-}
-
-function createRenderContext(width, height) {
-  const layer = document.createElement("canvas");
-  layer.width = width;
-  layer.height = height;
-  return {
-    layer,
-    context: layer.getContext("2d"),
-  };
-}
-
-function drawParticle(targetContext, p, x, y, renderCorePull, renderGlow) {
-  const glow = p.size * renderGlow * (1 + renderCorePull * (1 - p.distance) * 0.48);
-  const softRadius = glow * 4.8;
-  const gradient = targetContext.createRadialGradient(x, y, 0, x, y, softRadius);
-  gradient.addColorStop(0, `rgba(255, 255, 255, ${p.alpha})`);
-  gradient.addColorStop(0.36, `rgba(255, 255, 255, ${p.alpha * 0.22})`);
-  gradient.addColorStop(1, "rgba(255, 255, 255, 0)");
-  targetContext.beginPath();
-  targetContext.fillStyle = gradient;
-  targetContext.shadowColor = STARFIELD_COLOR.shadow;
-  targetContext.shadowBlur = 8 + renderCorePull * 16;
-  targetContext.arc(x, y, softRadius, 0, Math.PI * 2);
-  targetContext.fill();
-}
-
-function getParticlePosition(p, starfield, width, height, phaseName = "contract") {
-  const cx = width / 2;
-  const cy = height * 0.6;
-  const maxRadius = Math.min(width, height) * 0.66;
-  const looseRadius = maxRadius * (0.14 + p.distance * 0.86) * starfield.scale;
-  const coreRadius = maxRadius * (0.03 + p.coreBias * 0.18) * 0.72;
-  const radius = looseRadius * (1 - starfield.corePull) + coreRadius * starfield.corePull;
-  const angle = getParticleAngle({ baseAngle: p.angle, timeSeconds: 0, speed: p.speed, distance: p.distance });
-  const renderCorePull = phaseName === "expand" ? 0.78 : starfield.corePull;
-
-  return {
-    x: cx + Math.cos(angle) * radius,
-    y: cy + Math.sin(angle) * radius * (0.64 - renderCorePull * 0.24),
-  };
-}
-
-function buildStarfieldLayer() {
-  const width = window.innerWidth;
-  const height = window.innerHeight;
-  const layerScale = 1;
-  layerWidth = Math.ceil(width * layerScale);
-  layerHeight = Math.ceil(height * layerScale);
-  const { layer, context } = createRenderContext(layerWidth, layerHeight);
-  const holdState = getStarfieldState({ name: "hold", progress: 0 });
-
-  context.clearRect(0, 0, layerWidth, layerHeight);
-  context.save();
-  context.translate((layerWidth - width) / 2, (layerHeight - height) / 2);
-
-  for (const p of particles) {
-    const { x, y } = getParticlePosition(p, holdState, width, height, "expand");
-    drawParticle(context, p, x, y, 0.78, 1.68);
-  }
-
-  context.restore();
-  starfieldLayer = layer;
-  exhaleActive = false;
-  if (exhaleLayer) {
-    exhaleLayer.classList.remove("is-active");
-    exhaleLayer.style.backgroundImage = "";
-    exhaleLayer.style.transform = "translate(-50%, -50%) scale(1)";
   }
 }
 
@@ -163,28 +88,6 @@ function setCopy(phaseName) {
   document.body.dataset.phase = phaseName;
 }
 
-function activateExhaleLayer() {
-  if (!starfieldLayer || !exhaleLayer || exhaleActive) return;
-
-  exhaleActive = true;
-  exhaleLayer.style.width = `${layerWidth}px`;
-  exhaleLayer.style.height = `${layerHeight}px`;
-  exhaleLayer.style.backgroundImage = `url(${starfieldLayer.toDataURL("image/png")})`;
-  exhaleLayer.style.transform = "translate(-50%, -50%) scale(1)";
-  exhaleLayer.classList.add("is-active");
-  exhaleLayer.getBoundingClientRect();
-  exhaleLayer.style.transform = "translate(-50%, -50%) scale(1.18)";
-}
-
-function deactivateExhaleLayer() {
-  if (!exhaleLayer || !exhaleActive) return;
-
-  exhaleActive = false;
-  exhaleLayer.classList.remove("is-active");
-  exhaleLayer.style.backgroundImage = "";
-  exhaleLayer.style.transform = "translate(-50%, -50%) scale(1)";
-}
-
 function draw(time) {
   const width = window.innerWidth;
   const height = window.innerHeight;
@@ -202,29 +105,33 @@ function draw(time) {
 
   if (running && phase.name !== lastPhase) {
     if (phase.name === "contract") playTone("di");
-    if (phase.name === "expand") {
-      activateExhaleLayer();
-      playTone("ta");
-    } else {
-      deactivateExhaleLayer();
-    }
+    if (phase.name === "expand") playTone("ta");
     lastPhase = phase.name;
     setCopy(phase.name);
   }
 
-  if (phase.name === "expand" && exhaleActive) {
-    requestAnimationFrame(draw);
-    return;
-  }
-
   for (const p of particles) {
-    const looseRadius = maxRadius * (0.14 + p.distance * 0.86) * starfield.scale;
+    const drift = 0;
+    const looseRadius = maxRadius * (0.14 + (p.distance + drift) * 0.86) * starfield.scale;
     const coreRadius = maxRadius * (0.03 + p.coreBias * 0.18) * 0.72;
     const radius = looseRadius * (1 - starfield.corePull) + coreRadius * starfield.corePull;
     const angle = getParticleAngle({ baseAngle: p.angle, timeSeconds, speed: p.speed, distance: p.distance });
+    const renderCorePull = phase.name === "expand" ? 0.78 : starfield.corePull;
+    const renderGlow = phase.name === "expand" ? 1.68 : starfield.glow;
     const x = cx + Math.cos(angle) * radius;
-    const y = cy + Math.sin(angle) * radius * (0.64 - starfield.corePull * 0.24);
-    drawParticle(ctx, p, x, y, starfield.corePull, starfield.glow);
+    const y = cy + Math.sin(angle) * radius * (0.64 - renderCorePull * 0.24);
+    const glow = p.size * renderGlow * (1 + renderCorePull * (1 - p.distance) * 0.48);
+    const softRadius = glow * 4.8;
+    const gradient = ctx.createRadialGradient(x, y, 0, x, y, softRadius);
+    gradient.addColorStop(0, `rgba(255, 255, 255, ${p.alpha})`);
+    gradient.addColorStop(0.36, `rgba(255, 255, 255, ${p.alpha * 0.22})`);
+    gradient.addColorStop(1, "rgba(255, 255, 255, 0)");
+    ctx.beginPath();
+    ctx.fillStyle = gradient;
+    ctx.shadowColor = STARFIELD_COLOR.shadow;
+    ctx.shadowBlur = 8 + renderCorePull * 16;
+    ctx.arc(x, y, softRadius, 0, Math.PI * 2);
+    ctx.fill();
   }
 
   requestAnimationFrame(draw);
