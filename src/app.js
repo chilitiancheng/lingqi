@@ -1,4 +1,4 @@
-import { getBreathingPhase, getStarfieldState } from "./breathingCycle.js";
+import { getBreathingPhase, getStarfieldState, STARFIELD_COLOR } from "./breathingCycle.js";
 
 const canvas = document.querySelector("#starfield");
 const ctx = canvas.getContext("2d", { alpha: true });
@@ -30,17 +30,16 @@ function resize() {
 }
 
 function buildParticles() {
-  const count = Math.min(520, Math.max(260, Math.floor((window.innerWidth * window.innerHeight) / 2400)));
-  particles = Array.from({ length: count }, (_, index) => {
+  const count = Math.min(380, Math.max(190, Math.floor((window.innerWidth * window.innerHeight) / 3300)));
+  particles = Array.from({ length: count }, () => {
     const angle = Math.random() * Math.PI * 2;
     const distance = Math.sqrt(Math.random());
     return {
       angle,
       distance,
       orbit: Math.random() * Math.PI * 2,
-      size: 0.7 + Math.random() * 2.1,
+      size: 0.38 + Math.random() * 1.18,
       speed: 0.06 + Math.random() * 0.16,
-      hue: index % 13 === 0 ? 42 : 0,
       alpha: 0.26 + Math.random() * 0.58,
       coreBias: Math.random(),
     };
@@ -104,16 +103,16 @@ function draw(time) {
   for (const p of particles) {
     const drift = Math.sin(timeSeconds * p.speed + p.orbit) * 0.028;
     const looseRadius = maxRadius * (0.14 + (p.distance + drift) * 0.86) * starfield.scale;
-    const coreRadius = maxRadius * (0.01 + p.coreBias * 0.095) * (0.68 + Math.sin(timeSeconds * 0.9 + p.orbit) * 0.035);
+    const coreRadius = maxRadius * (0.03 + p.coreBias * 0.18) * (0.72 + Math.sin(timeSeconds * 0.9 + p.orbit) * 0.04);
     const radius = looseRadius * (1 - starfield.corePull) + coreRadius * starfield.corePull;
     const angle = p.angle + timeSeconds * p.speed * (0.34 + p.distance) * (1 + starfield.corePull * 0.8);
     const x = cx + Math.cos(angle) * radius;
     const y = cy + Math.sin(angle) * radius * (0.64 - starfield.corePull * 0.24);
-    const glow = p.size * starfield.glow * (1 + starfield.corePull * (1 - p.distance) * 0.72);
+    const glow = p.size * starfield.glow * (1 + starfield.corePull * (1 - p.distance) * 0.48);
     ctx.beginPath();
-    ctx.fillStyle = `hsla(${p.hue}, ${p.hue === 0 ? 0 : 54}%, ${p.hue === 42 ? 78 : 94}%, ${p.alpha})`;
-    ctx.shadowColor = p.hue === 42 ? "rgba(255, 232, 168, 0.28)" : "rgba(255, 255, 255, 0.34)";
-    ctx.shadowBlur = 7 + starfield.corePull * 15;
+    ctx.fillStyle = STARFIELD_COLOR.fill.replace("alpha", p.alpha.toFixed(3));
+    ctx.shadowColor = STARFIELD_COLOR.shadow;
+    ctx.shadowBlur = 13 + starfield.corePull * 30;
     ctx.arc(x, y, glow, 0, Math.PI * 2);
     ctx.fill();
   }
