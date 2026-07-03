@@ -114,7 +114,10 @@ function draw(time) {
     const drift = 0;
     const looseRadius = maxRadius * (0.14 + (p.distance + drift) * 0.86) * starfield.scale;
     const coreRadius = maxRadius * (0.03 + p.coreBias * 0.18) * 0.72;
-    const radius = looseRadius * (1 - starfield.corePull) + coreRadius * starfield.corePull;
+    const radius =
+      phase.name === "expand"
+        ? coreRadius * (1 + (starfield.scale - 0.34) * 1.8)
+        : looseRadius * (1 - starfield.corePull) + coreRadius * starfield.corePull;
     const angle = getParticleAngle({ baseAngle: p.angle, timeSeconds, speed: p.speed, distance: p.distance });
     const renderCorePull = phase.name === "expand" ? 0.78 : starfield.corePull;
     const renderGlow = phase.name === "expand" ? 1.68 : starfield.glow;
