@@ -5,6 +5,10 @@ export const BREATHING_PHASES = [
 ];
 
 export const BREATHING_CYCLE_SECONDS = BREATHING_PHASES.reduce((sum, phase) => sum + phase.duration, 0);
+export const STARFIELD_COLOR = {
+  fill: "rgba(255, 255, 255, alpha)",
+  shadow: "rgba(255, 255, 255, 0.46)",
+};
 
 export function getBreathingPhase(elapsedSeconds) {
   if (!Number.isFinite(elapsedSeconds) || elapsedSeconds <= 0) {
@@ -43,27 +47,27 @@ export function getStarfieldState(phase) {
   if (phase?.name === "contract") {
     const gather = easeOutCubic(progress);
     return {
-      scale: round(1 - gather * 0.78),
-      corePull: round(gather),
-      glow: round(1 + gather * 0.95),
+      scale: round(1 - gather * 0.66),
+      corePull: round(gather * 0.82),
+      glow: round(1 + gather * 1.05),
     };
   }
 
   if (phase?.name === "hold") {
     const pulse = Math.sin(progress * Math.PI * 2);
     return {
-      scale: round(0.24 + pulse * 0.018),
-      corePull: 1,
-      glow: round(1.46 + Math.abs(pulse) * 0.06),
+      scale: round(0.34 + pulse * 0.025),
+      corePull: round(0.78 + Math.abs(pulse) * 0.04),
+      glow: round(1.68 + Math.abs(pulse) * 0.1),
     };
   }
 
   if (phase?.name === "expand") {
     const release = easeInOutSine(progress);
     return {
-      scale: round(0.24 + release * 0.82),
-      corePull: round(1 - release),
-      glow: round(1.46 - release * 0.42),
+      scale: round(0.34 + release * 0.72),
+      corePull: round((1 - release) * 0.78),
+      glow: round(1.68 - release * 0.44),
     };
   }
 
