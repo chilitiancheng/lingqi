@@ -1,7 +1,6 @@
-import { getBreathingPhase, getParticleAngle, getStarfieldState, STARFIELD_COLOR } from "./breathingCycle.js";
+import { getBreathingPhase, getStarfieldState } from "./breathingCycle.js";
 
 const canvas = document.querySelector("#starfield");
-const ctx = canvas.getContext("2d", { alpha: true });
 const enterButton = document.querySelector("#enterButton");
 const phaseLabel = document.querySelector("#phaseLabel");
 const phaseHint = document.querySelector("#phaseHint");
@@ -13,46 +12,174 @@ const phaseCopy = {
   expand: ["呼气 8 秒", "星群散开"],
 };
 
+const PARTICLE_COUNT = 200;
+const PARTICLE_SPREAD = 10;
+const PARTICLE_BASE_SIZE = 58;
+const SIZE_RANDOMNESS = 0.12;
+const CAMERA_DISTANCE = 26;
+const FOV = 20;
+
 let running = false;
 let startTime = 0;
 let lastPhase = "idle";
-let particles = [];
 let audioContext = null;
+let gl = null;
+let program = null;
+let buffers = null;
+let particleState = null;
+let previousFrameTime = 0;
+let particleTime = 0;
 
-function resize() {
-  const dpr = Math.min(window.devicePixelRatio || 1, 2);
-  canvas.width = Math.floor(window.innerWidth * dpr);
-  canvas.height = Math.floor(window.innerHeight * dpr);
-  canvas.style.width = `${window.innerWidth}px`;
-  canvas.style.height = `${window.innerHeight}px`;
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  buildParticles();
+const vertexShaderSource = `
+  attribute vec3 position;
+  attribute vec4 random;
+
+  uniform float uTime;
+  uniform float uSpread;
+  uniform float uBaseSize;
+  uniform float uAspect;
+  uniform float uFovScale;
+  uniform float uCameraDistance;
+  uniform float uVerticalOffset;
+
+  varying vec4 vRandom;
+
+  void main() {
+    vRandom = random;
+
+    vec3 pos = position * uSpread;
+    pos.z *= 10.0;
+
+    float t = uTime;
+    pos.x += sin(t * random.z + 6.28 * random.w) * mix(0.1, 1.5, random.x);
+    pos.y += sin(t * random.y + 6.28 * random.x) * mix(0.1, 1.5, random.w);
+    pos.z += sin(t * random.w + 6.28 * random.y) * mix(0.1, 1.5, random.z);
+
+    float viewZ = uCameraDistance - pos.z;
+    vec2 projected = pos.xy / max(viewZ, 0.01) * uFovScale;
+
+    gl_Position = vec4(projected.x / uAspect, projected.y + uVerticalOffset, 0.0, 1.0);
+  gl_PointSize = (uBaseSize * (1.0 + ${SIZE_RANDOMNESS.toFixed(2)} * (random.x - 0.5))) / max(viewZ, 0.01);
+  }
+`;
+
+const fragmentShaderSource = `
+  precision highp float;
+
+  varying vec4 vRandom;
+
+  void main() {
+    vec2 uv = gl_PointCoord.xy;
+    float d = length(uv - vec2(0.5));
+
+    if (d > 0.5) {
+      discard;
+    }
+
+    float shimmer = 0.08 * sin(uv.y + vRandom.y * 6.28);
+    gl_FragColor = vec4(vec3(1.0 + shimmer), 1.0);
+  }
+`;
+
+function createShader(type, source) {
+  const shader = gl.createShader(type);
+  gl.shaderSource(shader, source);
+  gl.compileShader(shader);
+
+  if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+    throw new Error(gl.getShaderInfoLog(shader) || "Shader compile failed");
+  }
+
+  return shader;
+}
+
+function createProgram() {
+  const vertexShader = createShader(gl.VERTEX_SHADER, vertexShaderSource);
+  const fragmentShader = createShader(gl.FRAGMENT_SHADER, fragmentShaderSource);
+  const shaderProgram = gl.createProgram();
+  gl.attachShader(shaderProgram, vertexShader);
+  gl.attachShader(shaderProgram, fragmentShader);
+  gl.linkProgram(shaderProgram);
+
+  if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
+    throw new Error(gl.getProgramInfoLog(shaderProgram) || "Program link failed");
+  }
+
+  gl.deleteShader(vertexShader);
+  gl.deleteShader(fragmentShader);
+  return shaderProgram;
 }
 
 function buildParticles() {
-  const count = Math.min(340, Math.max(180, Math.floor((window.innerWidth * window.innerHeight) / 3700)));
-  const pairCount = Math.floor(count / 2);
-  particles = [];
-  const goldenAngle = Math.PI * (3 - Math.sqrt(5));
+  const positions = new Float32Array(PARTICLE_COUNT * 3);
+  const randoms = new Float32Array(PARTICLE_COUNT * 4);
 
-  for (let index = 0; index < pairCount; index += 1) {
-    const sequence = (index + 0.5) / pairCount;
-    const angle = index * goldenAngle;
-    const distance = Math.sqrt(sequence);
-    const particle = {
-      angle,
-      distance,
-      orbit: angle,
-      size: 0.42,
-      speed: 0.06 + Math.random() * 0.16,
-      alpha: 0.52,
-      coreBias: sequence,
-    };
+  for (let i = 0; i < PARTICLE_COUNT; i += 1) {
+    let x = 0;
+    let y = 0;
+    let z = 0;
+    let len = 0;
 
-    particles.push(particle, {
-      ...particle,
-      angle: angle + Math.PI,
-    });
+    do {
+      x = Math.random() * 2 - 1;
+      y = Math.random() * 2 - 1;
+      z = Math.random() * 2 - 1;
+      len = x * x + y * y + z * z;
+    } while (len > 1 || len === 0);
+
+    const radius = Math.cbrt(Math.random());
+    positions.set([x * radius, y * radius, z * radius], i * 3);
+    randoms.set([Math.random(), Math.random(), Math.random(), Math.random()], i * 4);
+  }
+
+  return { positions, randoms };
+}
+
+function createBuffer(data, size, attributeName) {
+  const buffer = gl.createBuffer();
+  const location = gl.getAttribLocation(program, attributeName);
+  gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+  gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
+  gl.enableVertexAttribArray(location);
+  gl.vertexAttribPointer(location, size, gl.FLOAT, false, 0, 0);
+  return buffer;
+}
+
+function initParticles() {
+  gl = canvas.getContext("webgl", {
+    alpha: true,
+    antialias: true,
+    depth: false,
+    premultipliedAlpha: false,
+  });
+
+  if (!gl) return;
+
+  program = createProgram();
+  gl.useProgram(program);
+  particleState = buildParticles();
+  buffers = {
+    position: createBuffer(particleState.positions, 3, "position"),
+    random: createBuffer(particleState.randoms, 4, "random"),
+  };
+
+  gl.clearColor(0, 0, 0, 0);
+  gl.disable(gl.DEPTH_TEST);
+  gl.enable(gl.BLEND);
+  gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
+}
+
+function resize() {
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const width = Math.floor(window.innerWidth * dpr);
+  const height = Math.floor(window.innerHeight * dpr);
+  canvas.width = width;
+  canvas.height = height;
+  canvas.style.width = `${window.innerWidth}px`;
+  canvas.style.height = `${window.innerHeight}px`;
+
+  if (gl) {
+    gl.viewport(0, 0, width, height);
   }
 }
 
@@ -88,20 +215,52 @@ function setCopy(phaseName) {
   document.body.dataset.phase = phaseName;
 }
 
+function getParticleRenderState(phase, starfield) {
+  if (phase.name === "contract") {
+    return {
+      spread: PARTICLE_SPREAD * (1 - starfield.corePull * 0.62),
+      size: PARTICLE_BASE_SIZE * (1 + starfield.corePull * 0.32),
+      speed: 0.1,
+      rotate: true,
+    };
+  }
+
+  if (phase.name === "hold") {
+    return {
+      spread: PARTICLE_SPREAD * 0.52,
+      size: PARTICLE_BASE_SIZE * 1.32,
+      speed: 0,
+      rotate: false,
+    };
+  }
+
+  if (phase.name === "expand") {
+    const release = Math.sin((Math.PI * phase.progress) / 2);
+    return {
+      spread: PARTICLE_SPREAD * (0.52 + release * 0.28),
+      size: PARTICLE_BASE_SIZE * 1.32,
+      speed: 0,
+      rotate: false,
+    };
+  }
+
+  return {
+    spread: PARTICLE_SPREAD,
+    size: PARTICLE_BASE_SIZE,
+    speed: 0.1,
+    rotate: true,
+  };
+}
+
 function draw(time) {
-  const width = window.innerWidth;
-  const height = window.innerHeight;
-  ctx.clearRect(0, 0, width, height);
-  ctx.fillStyle = "#000000";
-  ctx.fillRect(0, 0, width, height);
+  if (!gl) return;
 
   const elapsed = running ? (time - startTime) / 1000 : 0;
   const phase = running ? getBreathingPhase(elapsed) : { name: "idle", progress: 0 };
   const starfield = getStarfieldState(phase);
-  const cx = width / 2;
-  const cy = height * 0.6;
-  const maxRadius = Math.min(width, height) * 0.66;
-  const timeSeconds = time * 0.001;
+  const renderState = getParticleRenderState(phase, starfield);
+  const delta = previousFrameTime ? time - previousFrameTime : 0;
+  previousFrameTime = time;
 
   if (running && phase.name !== lastPhase) {
     if (phase.name === "contract") playTone("di");
@@ -110,32 +269,20 @@ function draw(time) {
     setCopy(phase.name);
   }
 
-  for (const p of particles) {
-    const drift = 0;
-    const looseRadius = maxRadius * (0.14 + (p.distance + drift) * 0.86) * starfield.scale;
-    const coreRadius = maxRadius * (0.03 + p.coreBias * 0.18) * 0.72;
-    const radius =
-      phase.name === "expand"
-        ? coreRadius * (1 + (starfield.scale - 0.34) * 1.8)
-        : looseRadius * (1 - starfield.corePull) + coreRadius * starfield.corePull;
-    const angle = getParticleAngle({ baseAngle: p.angle, timeSeconds, speed: p.speed, distance: p.distance });
-    const renderCorePull = phase.name === "expand" ? 0.78 : starfield.corePull;
-    const renderGlow = phase.name === "expand" ? 1.68 : starfield.glow;
-    const x = cx + Math.cos(angle) * radius;
-    const y = cy + Math.sin(angle) * radius * (0.64 - renderCorePull * 0.24);
-    const glow = p.size * renderGlow * (1 + renderCorePull * (1 - p.distance) * 0.48);
-    const softRadius = glow * 4.8;
-    const gradient = ctx.createRadialGradient(x, y, 0, x, y, softRadius);
-    gradient.addColorStop(0, `rgba(255, 255, 255, ${p.alpha})`);
-    gradient.addColorStop(0.36, `rgba(255, 255, 255, ${p.alpha * 0.22})`);
-    gradient.addColorStop(1, "rgba(255, 255, 255, 0)");
-    ctx.beginPath();
-    ctx.fillStyle = gradient;
-    ctx.shadowColor = STARFIELD_COLOR.shadow;
-    ctx.shadowBlur = 8 + renderCorePull * 16;
-    ctx.arc(x, y, softRadius, 0, Math.PI * 2);
-    ctx.fill();
+  if (renderState.speed > 0) {
+    particleTime += delta * renderState.speed * 0.001;
   }
+
+  gl.clear(gl.COLOR_BUFFER_BIT);
+  gl.useProgram(program);
+  gl.uniform1f(gl.getUniformLocation(program, "uTime"), particleTime);
+  gl.uniform1f(gl.getUniformLocation(program, "uSpread"), renderState.spread);
+  gl.uniform1f(gl.getUniformLocation(program, "uBaseSize"), renderState.size * Math.min(window.devicePixelRatio || 1, 2));
+  gl.uniform1f(gl.getUniformLocation(program, "uAspect"), canvas.width / canvas.height);
+  gl.uniform1f(gl.getUniformLocation(program, "uFovScale"), 1 / Math.tan((FOV * Math.PI) / 360));
+  gl.uniform1f(gl.getUniformLocation(program, "uCameraDistance"), CAMERA_DISTANCE);
+  gl.uniform1f(gl.getUniformLocation(program, "uVerticalOffset"), window.innerWidth < 560 ? -0.42 : -0.28);
+  gl.drawArrays(gl.POINTS, 0, PARTICLE_COUNT);
 
   requestAnimationFrame(draw);
 }
@@ -152,6 +299,7 @@ function startBreathing() {
 enterButton.addEventListener("click", startBreathing);
 window.addEventListener("resize", resize);
 
+initParticles();
 resize();
 setCopy("idle");
 requestAnimationFrame(draw);
