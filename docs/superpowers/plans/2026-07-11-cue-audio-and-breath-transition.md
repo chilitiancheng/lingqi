@@ -48,9 +48,9 @@ class CueSynthesisTest {
     @Test
     fun cueSpecsMatchApprovedFrequenciesAndLevels() {
         assertEquals(1_400.0, DI_CUE.frequencyHz, 0.0)
-        assertEquals(0.55, DI_CUE.volume, 0.0)
+        assertEquals(0.80, DI_CUE.volume, 0.0)
         assertEquals(880.0, TA_CUE.frequencyHz, 0.0)
-        assertEquals(0.50, TA_CUE.volume, 0.0)
+        assertEquals(0.75, TA_CUE.volume, 0.0)
         listOf(DI_CUE, TA_CUE).forEach { spec ->
             assertEquals(0.18, spec.durationSeconds, 0.0)
             assertEquals(0.005, spec.attackSeconds, 0.0)
@@ -120,8 +120,8 @@ internal data class CueToneSpec(
     val harmonicRatio: Double = 0.18
 )
 
-internal val DI_CUE = CueToneSpec(frequencyHz = 1_400.0, volume = 0.55)
-internal val TA_CUE = CueToneSpec(frequencyHz = 880.0, volume = 0.50)
+internal val DI_CUE = CueToneSpec(frequencyHz = 1_400.0, volume = 0.80)
+internal val TA_CUE = CueToneSpec(frequencyHz = 880.0, volume = 0.75)
 
 internal fun cueEnvelope(elapsedSeconds: Double, durationSeconds: Double, attackSeconds: Double): Double {
     if (elapsedSeconds <= 0.0 || elapsedSeconds >= durationSeconds) return 0.0

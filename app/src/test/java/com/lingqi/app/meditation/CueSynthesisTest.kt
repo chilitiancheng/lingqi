@@ -12,8 +12,8 @@ class CueSynthesisTest {
 
     @Test
     fun cueSpecsAreExact() {
-        assertEquals(CueToneSpec(1400.0, 0.55), DI_CUE)
-        assertEquals(CueToneSpec(880.0, 0.50), TA_CUE)
+        assertEquals(CueToneSpec(1400.0, 0.80), DI_CUE)
+        assertEquals(CueToneSpec(880.0, 0.75), TA_CUE)
         assertEquals(0.18, DI_CUE.durationSeconds, 0.0)
         assertEquals(0.005, DI_CUE.attackSeconds, 0.0)
         assertEquals(0.18, DI_CUE.harmonicRatio, 0.0)

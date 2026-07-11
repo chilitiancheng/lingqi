@@ -11,8 +11,8 @@ internal data class CueToneSpec(
     val harmonicRatio: Double = 0.18
 )
 
-internal val DI_CUE = CueToneSpec(frequencyHz = 1400.0, volume = 0.55)
-internal val TA_CUE = CueToneSpec(frequencyHz = 880.0, volume = 0.50)
+internal val DI_CUE = CueToneSpec(frequencyHz = 1400.0, volume = 0.80)
+internal val TA_CUE = CueToneSpec(frequencyHz = 880.0, volume = 0.75)
 
 internal fun cueEnvelope(elapsedSeconds: Double, spec: CueToneSpec): Double {
     if (elapsedSeconds >= spec.durationSeconds) return 0.0
