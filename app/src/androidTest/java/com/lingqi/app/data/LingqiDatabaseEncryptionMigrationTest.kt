@@ -121,7 +121,9 @@ class LingqiDatabaseEncryptionMigrationTest {
             SQLiteDatabase.OPEN_READWRITE
         )
         assertTrue(writer.enableWriteAheadLogging())
-        writer.execSQL("PRAGMA wal_autocheckpoint=0")
+        writer.rawQuery("PRAGMA wal_autocheckpoint=0", null).use { cursor ->
+            assertTrue(cursor.moveToFirst())
+        }
         writer.insertOrThrow("meditation_sessions", null, ContentValues().apply {
             put("id", "backup-wal-only")
             put("practice_id", "focus")
