@@ -102,16 +102,12 @@ private class ParticleRenderer : GLSurfaceView.Renderer {
     }
 
     private fun visualState(state: BreathState?): VisualState {
-        if (!active || state == null) return VisualState(particleSpread(state, active), 58f, true)
-        return when (state.phase) {
-            BreathPhase.INHALE -> {
-                val p = state.progress
-                val smooth = p * p * (3f - 2f * p)
-                VisualState(particleSpread(state, active), 58f + smooth * 18f, true)
-            }
-            BreathPhase.HOLD -> VisualState(particleSpread(state, active), 76f, false)
-            BreathPhase.EXHALE -> VisualState(particleSpread(state, active), 76f, false)
-        }
+        val motionEnabled = !active || state == null || state.phase == BreathPhase.INHALE
+        return VisualState(
+            spread = particleSpread(state, active),
+            size = particleBaseSize(state, active),
+            motionEnabled = motionEnabled,
+        )
     }
 
     private fun uniform(name: String, value: Float) {
@@ -228,6 +224,22 @@ internal fun particleSpread(state: BreathState?, active: Boolean): Float {
         BreathPhase.EXHALE -> {
             val release = (0.5 - cos(PI * state.progress) / 2.0).toFloat()
             5.2f + release * 4.8f
+        }
+    }
+}
+
+internal fun particleBaseSize(state: BreathState?, active: Boolean): Float {
+    if (!active || state == null) return 58f
+    return when (state.phase) {
+        BreathPhase.INHALE -> {
+            val progress = state.progress
+            val smooth = progress * progress * (3f - 2f * progress)
+            58f + smooth * 18f
+        }
+        BreathPhase.HOLD -> 76f
+        BreathPhase.EXHALE -> {
+            val release = (0.5 - cos(PI * state.progress) / 2.0).toFloat()
+            76f - release * 18f
         }
     }
 }
