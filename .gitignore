@@ -2,3 +2,15 @@ dist/
 node_modules/
 .DS_Store
 tmp-*.png
+.gradle/
+.idea/
+local.properties
+**/build/
+captures/
+*.iml
+app/release/
+*.jks
+*.keystore
+*.p12
+keystore.properties
+signing.properties

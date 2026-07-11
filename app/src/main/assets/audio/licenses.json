@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "assets": [
+    {
+      "title": "Meditation Relax Sleep Music",
+      "author": "ViacheslavStarostin",
+      "sourceUrl": "https://pixabay.com/music/ambient-meditation-relax-sleep-music-346733/",
+      "localFilename": "meditation-relax-sleep-music-346733.mp3",
+      "mediaType": "audio/mpeg",
+      "durationSeconds": 588.408156,
+      "publishedAt": "2025-05-26",
+      "downloadedAt": "2026-07-11",
+      "downloadedFromOfficialSource": true,
+      "licenseName": "Pixabay Content License",
+      "licenseUrl": "https://pixabay.com/service/license-summary/",
+      "contentIdRegistered": true,
+      "audioSha256": "6CF0152E015447187AE6F212987463BDDC181AC69E2ED593CF0F06557F959DC2",
+      "licenseProof": {
+        "verifiedAt": "2026-07-11",
+        "officialAssetPage": "https://pixabay.com/music/ambient-meditation-relax-sleep-music-346733/",
+        "officialLicenseSummary": "https://pixabay.com/service/license-summary/",
+        "downloadCertificateUrl": "https://pixabay.com/music/346733/license/",
+        "downloadCertificateNote": "The official certificate endpoint requires a Pixabay account; the public official asset and license pages were recorded without bypassing login."
+      }
+    }
+  ],
+  "notes": [
+    "Version 0.1 uses Android system Chinese TTS for guided speech.",
+    "The 478 cue tones are generated procedurally at runtime.",
+    "The bundled ambient track was downloaded from the official Pixabay asset page and is intended for quiet looping in guided non-478 sessions.",
+    "The 478 session remains cue-only so the inhale and exhale tones stay distinct."
+  ]
+}

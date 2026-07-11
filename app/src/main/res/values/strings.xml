@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">灵栖</string>
+    <string name="sleep_channel_name">睡眠检测</string>
+    <string name="sleep_channel_description">保持灵栖在锁屏后继续分析睡眠环境</string>
+    <string name="sleep_notification_title">灵栖正在守夜</string>
+    <string name="sleep_notification_stop">结束检测</string>
+    <string name="reminder_channel_name">灵栖提醒</string>
+</resources>
