@@ -2,6 +2,7 @@ package com.lingqi.app.meditation
 
 import kotlin.math.PI
 import kotlin.math.abs
+import kotlin.math.hypot
 import kotlin.math.sin
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -58,6 +59,17 @@ class CueSynthesisTest {
     }
 
     @Test
+    fun generatedCuesContainApprovedSecondHarmonic() {
+        listOf(DI_CUE, TA_CUE).forEach { spec ->
+            val ratio = measuredHarmonicRatio(spec)
+            assertEquals(0.18, ratio, 0.02)
+
+            val noHarmonicRatio = measuredHarmonicRatio(spec.copy(harmonicRatio = 0.0))
+            assertTrue(noHarmonicRatio < 0.02)
+        }
+    }
+
+    @Test
     fun generatedCuesHaveApprovedDurationSafePeakAndSilentEdges() {
         listOf(DI_CUE, TA_CUE).forEach { spec ->
             val samples = generateCueSamples(spec)
@@ -89,5 +101,30 @@ class CueSynthesisTest {
         }
         assertTrue("Expected at least two positive zero crossings", crossings.size >= 2)
         return (crossings.size - 1) * sampleRate / (crossings.last() - crossings.first())
+    }
+
+    private fun measuredHarmonicRatio(spec: CueToneSpec): Double {
+        val samples = generateCueSamples(spec, sampleRate)
+        val startIndex = (0.010 * sampleRate).toInt()
+        val endIndex = (0.060 * sampleRate).toInt()
+        val restoredWave = DoubleArray(endIndex - startIndex) { offset ->
+            val index = startIndex + offset
+            val elapsedSeconds = index.toDouble() / sampleRate
+            samples[index] / (Short.MAX_VALUE * spec.volume * cueEnvelope(elapsedSeconds, spec))
+        }
+        val fundamentalMagnitude = spectralMagnitude(restoredWave, spec.frequencyHz, startIndex)
+        val harmonicMagnitude = spectralMagnitude(restoredWave, 2.0 * spec.frequencyHz, startIndex)
+        return harmonicMagnitude / fundamentalMagnitude
+    }
+
+    private fun spectralMagnitude(samples: DoubleArray, frequencyHz: Double, startIndex: Int): Double {
+        var sinProjection = 0.0
+        var cosProjection = 0.0
+        samples.forEachIndexed { offset, sample ->
+            val phase = 2.0 * PI * frequencyHz * (startIndex + offset) / sampleRate
+            sinProjection += sample * sin(phase)
+            cosProjection += sample * kotlin.math.cos(phase)
+        }
+        return hypot(sinProjection, cosProjection)
     }
 }
