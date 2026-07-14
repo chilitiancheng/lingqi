@@ -51,6 +51,17 @@ data class SleepSession(
     val epochs: List<SleepEpoch> = emptyList()
 )
 
+enum class BreathingCueSound(val storageValue: String, val label: String) {
+    PENDULUM("pendulum", "摆钟咔哒"),
+    BELL("bell", "清脆短铃"),
+    SILENT("silent", "静音");
+
+    companion object {
+        fun fromStorage(value: String?): BreathingCueSound =
+            entries.firstOrNull { it.storageValue == value } ?: PENDULUM
+    }
+}
+
 data class UserPreferences(
     val nickname: String = "旅人",
     val soundEnabled: Boolean = true,
@@ -60,7 +71,8 @@ data class UserPreferences(
     val meditationReminderMinute: Int = 0,
     val sleepReminderHour: Int = 23,
     val sleepReminderMinute: Int = 0,
-    val linglianWellnessSharingEnabled: Boolean = false
+    val linglianWellnessSharingEnabled: Boolean = false,
+    val breathingCueSound: BreathingCueSound = BreathingCueSound.PENDULUM
 )
 
 data class UserStats(

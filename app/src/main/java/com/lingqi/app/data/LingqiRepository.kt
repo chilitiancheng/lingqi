@@ -33,7 +33,10 @@ class LingqiRepository(private val database: LingqiDatabase) {
             meditationReminderMinute = json.optInt("meditationReminderMinute", 0),
             sleepReminderHour = json.optInt("sleepReminderHour", 23),
             sleepReminderMinute = json.optInt("sleepReminderMinute", 0),
-            linglianWellnessSharingEnabled = json.optBoolean("linglianWellnessSharingEnabled", false)
+            linglianWellnessSharingEnabled = json.optBoolean("linglianWellnessSharingEnabled", false),
+            breathingCueSound = BreathingCueSound.fromStorage(
+                json.optString("breathingCueSound").takeIf { json.has("breathingCueSound") }
+            )
         )
     }
 
@@ -50,6 +53,7 @@ class LingqiRepository(private val database: LingqiDatabase) {
                 put("sleepReminderHour", value.sleepReminderHour)
                 put("sleepReminderMinute", value.sleepReminderMinute)
                 put("linglianWellnessSharingEnabled", value.linglianWellnessSharingEnabled)
+                put("breathingCueSound", value.breathingCueSound.storageValue)
             }.toString()
         )
     }
