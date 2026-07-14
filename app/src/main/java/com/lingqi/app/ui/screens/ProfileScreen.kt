@@ -42,6 +42,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.LifecycleOwner
 import com.lingqi.app.LingqiApplication
+import com.lingqi.app.data.BreathingCueSound
 import com.lingqi.app.data.LocalDataDeletionCoordinator
 import com.lingqi.app.data.UserPreferences
 import com.lingqi.app.notifications.NotificationPermissionPolicy
@@ -65,6 +66,7 @@ fun ProfileScreen(onBack: () -> Unit) {
     var stats by remember { mutableStateOf(repository.stats()) }
     var nicknameDialog by remember { mutableStateOf(false) }
     var deleteDialog by remember { mutableStateOf(false) }
+    var breathingCueDialog by remember { mutableStateOf(false) }
     var exportContent by remember { mutableStateOf("") }
 
     fun updatePreferences(next: UserPreferences) {
@@ -269,7 +271,13 @@ fun ProfileScreen(onBack: () -> Unit) {
             Column(Modifier.padding(horizontal = 20.dp, vertical = 18.dp)) {
                 SectionTitle("提醒与声音")
                 Spacer(Modifier.height(8.dp))
-                ActionRow("冥想声音", "控制滴/嗒与语音引导", trailing = {
+                ActionRow(
+                    "呼吸提示音",
+                    preferences.breathingCueSound.label,
+                    onClick = { breathingCueDialog = true }
+                )
+                DividerLine()
+                ActionRow("语音与环境声", "用于引导冥想", trailing = {
                     Switch(checked = preferences.soundEnabled, onCheckedChange = { updatePreferences(preferences.copy(soundEnabled = it)) })
                 })
                 DividerLine()
@@ -354,7 +362,7 @@ fun ProfileScreen(onBack: () -> Unit) {
         }
         item {
             Text(
-                "音频策略：系统中文 TTS 与程序生成提示音。后续加入的环境声将随版本附带来源、作者和授权记录。\n\n睡眠阶段为健康趋势估算，不用于医疗诊断。",
+                "音频策略：系统中文 TTS、离线环境声，以及可选的真实摆钟或程序生成短铃。素材来源、作者和授权记录随版本附带。\n\n睡眠阶段为健康趋势估算，不用于医疗诊断。",
                 color = LingqiMuted,
                 fontSize = 10.sp,
                 lineHeight = 16.sp,
@@ -378,6 +386,16 @@ fun ProfileScreen(onBack: () -> Unit) {
             dismissButton = { TextButton(onClick = { nicknameDialog = false }) { Text("取消") } }
         )
     }
+    if (breathingCueDialog) {
+        BreathingCueSoundDialog(
+            selected = preferences.breathingCueSound,
+            onSelect = { sound ->
+                updatePreferences(preferences.copy(breathingCueSound = sound))
+                breathingCueDialog = false
+            },
+            onDismiss = { breathingCueDialog = false }
+        )
+    }
     if (deleteDialog) {
         AlertDialog(
             onDismissRequest = { deleteDialog = false },
@@ -394,4 +412,34 @@ fun ProfileScreen(onBack: () -> Unit) {
             dismissButton = { TextButton(onClick = { deleteDialog = false }) { Text("取消") } }
         )
     }
+}
+
+@Composable
+fun BreathingCueSoundDialog(
+    selected: BreathingCueSound,
+    onSelect: (BreathingCueSound) -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("呼吸提示音") },
+        text = {
+            Column(Modifier.fillMaxWidth()) {
+                BreathingCueSound.entries.forEach { sound ->
+                    TextButton(
+                        onClick = { onSelect(sound) },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            Text(if (sound == selected) "●" else "○")
+                            Spacer(Modifier.size(12.dp))
+                            Text(sound.label)
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } }
+    )
 }
