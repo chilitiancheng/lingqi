@@ -60,6 +60,8 @@ import com.lingqi.app.meditation.GuidedVoiceController
 import com.lingqi.app.meditation.advanceMeditationPlaybackClock
 import com.lingqi.app.meditation.guidedCues
 import com.lingqi.app.meditation.isMeditationPlaybackBlocked
+import com.lingqi.app.meditation.shouldPlayBreathingCue
+import com.lingqi.app.meditation.shouldPlayGuidedAudio
 import com.lingqi.app.ui.particle.LingqiParticleView
 import com.lingqi.app.ui.theme.LingqiMuted
 import com.lingqi.app.ui.theme.LingqiWhite
@@ -73,14 +75,17 @@ fun MeditationPlayerScreen(kind: MeditationKind, minutes: Int, onExit: () -> Uni
     val repository = (context.applicationContext as LingqiApplication).container.repository
     val plannedMillis = minutes * 60_000L
     val sessionStartedAt = remember { System.currentTimeMillis() }
-    val cuePlayer = remember { CuePlayer() }
+    val initialPreferences = remember { repository.preferences() }
+    val cuePlayer = remember { CuePlayer(context) }
     val voice = remember { GuidedVoiceController(context) }
     val ambientAudio = remember { AmbientAudioPlayer(context) }
     val cues = remember(kind) { guidedCues(kind) }
     var elapsedMillis by remember { mutableLongStateOf(0L) }
     var lastTick by remember { mutableLongStateOf(SystemClock.elapsedRealtime()) }
     var paused by remember { mutableStateOf(false) }
-    var soundEnabled by remember { mutableStateOf(repository.preferences().soundEnabled) }
+    val guidedSoundEnabled = initialPreferences.soundEnabled
+    val breathingCueSound = initialPreferences.breathingCueSound
+    var sessionMuted by remember { mutableStateOf(false) }
     var controlsVisible by remember { mutableStateOf(true) }
     var exitDialog by remember { mutableStateOf(false) }
     var saved by remember { mutableStateOf(false) }
@@ -109,7 +114,11 @@ fun MeditationPlayerScreen(kind: MeditationKind, minutes: Int, onExit: () -> Uni
                 startedAt = sessionStartedAt,
                 endedAt = System.currentTimeMillis(),
                 completionRate = (elapsedMillis.toFloat() / plannedMillis).coerceIn(0f, 1f),
-                soundEnabled = soundEnabled
+                soundEnabled = !sessionMuted && if (kind == MeditationKind.BREATH_478) {
+                    breathingCueSound != com.lingqi.app.data.BreathingCueSound.SILENT
+                } else {
+                    guidedSoundEnabled
+                }
             )
         )
     }
@@ -118,22 +127,28 @@ fun MeditationPlayerScreen(kind: MeditationKind, minutes: Int, onExit: () -> Uni
 
     DisposableEffect(Unit) {
         onDispose {
-            cuePlayer.stopAll()
+            cuePlayer.release()
             voice.shutdown()
             ambientAudio.release()
         }
     }
 
-    LaunchedEffect(soundEnabled, playbackBlocked) {
-        voice.setEnabled(soundEnabled && !playbackBlocked)
-        if (!soundEnabled || playbackBlocked) cuePlayer.stopAll()
+    LaunchedEffect(guidedSoundEnabled, sessionMuted, playbackBlocked) {
+        voice.setEnabled(
+            shouldPlayGuidedAudio(
+                soundEnabled = guidedSoundEnabled,
+                playbackBlocked = playbackBlocked,
+                sessionMuted = sessionMuted
+            )
+        )
+        if (sessionMuted || playbackBlocked) cuePlayer.stopAll()
     }
 
-    LaunchedEffect(kind, soundEnabled, playbackBlocked, completed) {
+    LaunchedEffect(kind, guidedSoundEnabled, sessionMuted, playbackBlocked, completed) {
         ambientAudio.setPlaying(
             AmbientPlaybackPolicy.shouldPlay(
                 kind = kind,
-                soundEnabled = soundEnabled,
+                soundEnabled = guidedSoundEnabled && !sessionMuted,
                 playbackBlocked = playbackBlocked,
                 completed = completed
             )
@@ -169,20 +184,28 @@ fun MeditationPlayerScreen(kind: MeditationKind, minutes: Int, onExit: () -> Uni
         }
     }
 
-    LaunchedEffect(breathState?.phase, soundEnabled, playbackBlocked) {
+    LaunchedEffect(breathState?.phase, breathingCueSound, sessionMuted, playbackBlocked, completed) {
         val phase = breathState?.phase ?: return@LaunchedEffect
-        if (phase != lastPhase && soundEnabled && !playbackBlocked) {
-            when (phase) {
-                BreathPhase.INHALE -> cuePlayer.playDi()
-                BreathPhase.EXHALE -> cuePlayer.playTa()
-                BreathPhase.HOLD -> Unit
-            }
+        if (
+            phase != lastPhase &&
+            shouldPlayBreathingCue(
+                playbackBlocked = playbackBlocked,
+                completed = completed,
+                sessionMuted = sessionMuted,
+                sound = breathingCueSound
+            )
+        ) {
+            cuePlayer.play(breathingCueSound, phase)
         }
         lastPhase = phase
     }
 
-    LaunchedEffect(elapsedMillis, playbackBlocked, soundEnabled) {
-        if (kind == MeditationKind.BREATH_478 || playbackBlocked || !soundEnabled || nextCueIndex >= cues.size) return@LaunchedEffect
+    LaunchedEffect(elapsedMillis, playbackBlocked, guidedSoundEnabled, sessionMuted) {
+        if (
+            kind == MeditationKind.BREATH_478 ||
+            !shouldPlayGuidedAudio(guidedSoundEnabled, playbackBlocked, sessionMuted) ||
+            nextCueIndex >= cues.size
+        ) return@LaunchedEffect
         val progress = elapsedMillis.toFloat() / plannedMillis
         if (progress >= cues[nextCueIndex].fraction) {
             voice.speak(cues[nextCueIndex].text)
@@ -246,11 +269,11 @@ fun MeditationPlayerScreen(kind: MeditationKind, minutes: Int, onExit: () -> Uni
                         Icon(Icons.Outlined.Close, "结束练习", tint = LingqiWhite)
                     }
                     IconButton(onClick = {
-                        soundEnabled = !soundEnabled
-                        if (!soundEnabled) voice.pause()
+                        sessionMuted = !sessionMuted
+                        if (sessionMuted) voice.pause()
                     }) {
                         Icon(
-                            if (soundEnabled) Icons.AutoMirrored.Outlined.VolumeUp else Icons.AutoMirrored.Outlined.VolumeOff,
+                            if (!sessionMuted) Icons.AutoMirrored.Outlined.VolumeUp else Icons.AutoMirrored.Outlined.VolumeOff,
                             "声音",
                             tint = LingqiWhite
                         )

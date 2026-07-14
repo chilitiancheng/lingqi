@@ -59,4 +59,36 @@ class MeditationAudioPolicyTest {
             )
         )
     }
+
+    @Test
+    fun recordedCueMapsInhaleToTickAndExhaleToTock() {
+        assertEquals(
+            CueAction.RECORDED_TICK,
+            cueAction(BreathingCueSound.PENDULUM, BreathPhase.INHALE, recordedReady = true)
+        )
+        assertEquals(
+            CueAction.RECORDED_TOCK,
+            cueAction(BreathingCueSound.PENDULUM, BreathPhase.EXHALE, recordedReady = true)
+        )
+        assertEquals(
+            CueAction.NONE,
+            cueAction(BreathingCueSound.PENDULUM, BreathPhase.HOLD, recordedReady = true)
+        )
+    }
+
+    @Test
+    fun unloadedRecordedCueFallsBackToMatchingSynthesizedBell() {
+        assertEquals(
+            CueAction.SYNTHESIZED_DI,
+            cueAction(BreathingCueSound.PENDULUM, BreathPhase.INHALE, recordedReady = false)
+        )
+        assertEquals(
+            CueAction.SYNTHESIZED_TA,
+            cueAction(BreathingCueSound.PENDULUM, BreathPhase.EXHALE, recordedReady = false)
+        )
+        assertEquals(
+            CueAction.NONE,
+            cueAction(BreathingCueSound.SILENT, BreathPhase.INHALE, recordedReady = false)
+        )
+    }
 }
