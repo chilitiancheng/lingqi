@@ -496,16 +496,11 @@ After the existing three-metric summary item and before the item containing `Sle
 
 ```kotlin
 item {
-    Surface(
-        color = LingqiSurface,
-        shape = RoundedCornerShape(24.dp),
-        border = BorderStroke(1.dp, LingqiLine),
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)
-    ) {
-        SleepStageDistributionCard(stageDistribution)
-    }
+    SleepStageDistributionCard(stageDistribution)
 }
 ```
+
+The chart area stays directly on the report's black background, matching the approved mockup; only the lower breakdown list uses its own rounded surface.
 
 Do not remove `SleepStageChart`, `StageLegend`, awake-event metrics, or the non-medical disclaimer.
 

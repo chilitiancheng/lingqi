@@ -32,6 +32,7 @@ import com.lingqi.app.LingqiApplication
 import com.lingqi.app.data.SleepEpoch
 import com.lingqi.app.data.SleepSession
 import com.lingqi.app.data.SleepStage
+import com.lingqi.app.sleep.calculateSleepStageDistribution
 import com.lingqi.app.ui.components.Metric
 import com.lingqi.app.ui.components.ScreenHeader
 import com.lingqi.app.ui.components.SectionTitle
@@ -77,6 +78,9 @@ fun SleepReportScreen(sessionId: String, onBack: () -> Unit) {
         return
     }
     val epochs = loadedSession.epochs
+    val stageDistribution = remember(epochs, loadedSession.endedAt) {
+        calculateSleepStageDistribution(epochs, loadedSession.endedAt)
+    }
     val duration = (loadedSession.endedAt ?: loadedSession.startedAt) - loadedSession.startedAt
     val awakeEvents = countAwakeEvents(epochs)
     val averageNoise = epochs.map { it.noiseDb }.takeIf { it.isNotEmpty() }?.average() ?: 0.0
@@ -112,6 +116,9 @@ fun SleepReportScreen(sessionId: String, onBack: () -> Unit) {
                     )
                 }
             }
+        }
+        item {
+            SleepStageDistributionCard(stageDistribution)
         }
         item {
             Column(Modifier.padding(horizontal = 20.dp, vertical = 16.dp)) {
