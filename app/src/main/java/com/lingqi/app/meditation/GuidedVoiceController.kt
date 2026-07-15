@@ -2,6 +2,7 @@ package com.lingqi.app.meditation
 
 import android.content.Context
 import android.media.AudioAttributes
+import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.speech.tts.TextToSpeech
@@ -16,6 +17,9 @@ class GuidedVoiceController(
     private val tts = TextToSpeech(context.applicationContext, this)
     private val state = GuidedVoiceState()
     private val mainHandler = Handler(Looper.getMainLooper())
+    private val speechParams = Bundle().apply {
+        putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, DEFAULT_GUIDED_VOICE_PROFILE.volume)
+    }
     private var enabled = true
 
     override fun onInit(status: Int) {
@@ -31,8 +35,8 @@ class GuidedVoiceController(
                 reportUnavailable()
                 return
             }
-            tts.setSpeechRate(0.82f)
-            tts.setPitch(0.92f)
+            tts.setSpeechRate(DEFAULT_GUIDED_VOICE_PROFILE.speechRate)
+            tts.setPitch(DEFAULT_GUIDED_VOICE_PROFILE.pitch)
             tts.setOnUtteranceProgressListener(
                 object : UtteranceProgressListener() {
                     override fun onStart(utteranceId: String?) = Unit
@@ -70,7 +74,7 @@ class GuidedVoiceController(
     fun shutdown() = tts.shutdown()
 
     private fun speakNow(text: String) {
-        if (tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, "lingqi-guidance") != TextToSpeech.SUCCESS) {
+        if (tts.speak(text, TextToSpeech.QUEUE_FLUSH, speechParams, "lingqi-guidance") != TextToSpeech.SUCCESS) {
             reportUnavailable()
         }
     }
