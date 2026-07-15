@@ -26,6 +26,7 @@ class LingqiDatabase(
     null,
     false
 ) {
+    private val epochPayloadCodec = EpochPayloadCodec(crypto::decrypt)
 
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL(
@@ -191,7 +192,7 @@ class LingqiDatabase(
             ContentValues().apply {
                 put("session_id", sessionId)
                 put("started_at", epoch.startedAt)
-                put("encrypted_payload", crypto.encrypt(payload))
+                put("encrypted_payload", epochPayloadCodec.encode(payload))
             }
         )
     }
@@ -222,6 +223,13 @@ class LingqiDatabase(
     }
 
     fun sleepSessions(limit: Int = 30): List<SleepSession> {
+        return sleepSessionHeaders(limit).map { session ->
+            session.copy(epochs = epochs(session.id))
+        }
+    }
+
+    fun sleepSessionHeaders(limit: Int = 30): List<SleepSession> {
+        require(limit > 0)
         return readableDatabase.query(
             "sleep_sessions",
             null,
@@ -234,18 +242,17 @@ class LingqiDatabase(
         ).use { cursor ->
             buildList {
                 while (cursor.moveToNext()) {
-                    val id = cursor.getString(cursor.getColumnIndexOrThrow("id"))
+                    val scoreIndex = cursor.getColumnIndexOrThrow("score")
                     add(
                         SleepSession(
-                            id = id,
+                            id = cursor.getString(cursor.getColumnIndexOrThrow("id")),
                             startedAt = cursor.getLong(cursor.getColumnIndexOrThrow("started_at")),
                             endedAt = cursor.getLong(cursor.getColumnIndexOrThrow("ended_at")),
                             placement = cursor.getString(cursor.getColumnIndexOrThrow("placement")),
                             coverage = cursor.getDouble(cursor.getColumnIndexOrThrow("coverage")),
-                            score = cursor.getInt(cursor.getColumnIndexOrThrow("score")),
+                            score = if (cursor.isNull(scoreIndex)) null else cursor.getInt(scoreIndex),
                             calibrationNight = cursor.getInt(cursor.getColumnIndexOrThrow("calibration_night")),
-                            algorithmVersion = cursor.getString(cursor.getColumnIndexOrThrow("algorithm_version")),
-                            epochs = epochs(id)
+                            algorithmVersion = cursor.getString(cursor.getColumnIndexOrThrow("algorithm_version"))
                         )
                     )
                 }
@@ -253,7 +260,42 @@ class LingqiDatabase(
         }
     }
 
-    fun sleepSession(id: String): SleepSession? = sleepSessions(200).firstOrNull { it.id == id }
+    fun completedSleepSessionCount(): Int {
+        return readableDatabase.rawQuery(
+            "SELECT COUNT(*) FROM sleep_sessions WHERE ended_at IS NOT NULL",
+            null
+        ).use { cursor ->
+            check(cursor.moveToFirst())
+            cursor.getInt(0)
+        }
+    }
+
+    fun sleepSession(id: String): SleepSession? {
+        val header = readableDatabase.query(
+            "sleep_sessions",
+            null,
+            "id = ? AND ended_at IS NOT NULL",
+            arrayOf(id),
+            null,
+            null,
+            null,
+            "1"
+        ).use { cursor ->
+            if (!cursor.moveToFirst()) return@use null
+            val scoreIndex = cursor.getColumnIndexOrThrow("score")
+            SleepSession(
+                id = id,
+                startedAt = cursor.getLong(cursor.getColumnIndexOrThrow("started_at")),
+                endedAt = cursor.getLong(cursor.getColumnIndexOrThrow("ended_at")),
+                placement = cursor.getString(cursor.getColumnIndexOrThrow("placement")),
+                coverage = cursor.getDouble(cursor.getColumnIndexOrThrow("coverage")),
+                score = if (cursor.isNull(scoreIndex)) null else cursor.getInt(scoreIndex),
+                calibrationNight = cursor.getInt(cursor.getColumnIndexOrThrow("calibration_night")),
+                algorithmVersion = cursor.getString(cursor.getColumnIndexOrThrow("algorithm_version"))
+            )
+        }
+        return header?.copy(epochs = epochs(id))
+    }
 
     fun sleepSummaries(limit: Int): List<SleepWellnessSummary> {
         require(limit in 1..WellnessProviderContract.MAX_LIMIT)
@@ -289,7 +331,7 @@ class LingqiDatabase(
     }
 
     fun sleepSessionIncludingOpen(id: String): SleepSession? {
-        return readableDatabase.query(
+        val header = readableDatabase.query(
             "sleep_sessions",
             null,
             "id = ?",
@@ -309,10 +351,10 @@ class LingqiDatabase(
                 coverage = cursor.getDouble(cursor.getColumnIndexOrThrow("coverage")),
                 score = if (cursor.isNull(scoreIndex)) null else cursor.getInt(scoreIndex),
                 calibrationNight = cursor.getInt(cursor.getColumnIndexOrThrow("calibration_night")),
-                algorithmVersion = cursor.getString(cursor.getColumnIndexOrThrow("algorithm_version")),
-                epochs = epochs(id)
+                algorithmVersion = cursor.getString(cursor.getColumnIndexOrThrow("algorithm_version"))
             )
         }
+        return header?.copy(epochs = epochs(id))
     }
 
     fun deleteSleepSession(id: String) {
@@ -321,7 +363,8 @@ class LingqiDatabase(
     }
 
     fun epochs(sessionId: String): List<SleepEpoch> {
-        return readableDatabase.query(
+        val legacyRows = mutableListOf<Pair<Long, String>>()
+        val result = readableDatabase.query(
             "sleep_epochs",
             null,
             "session_id = ?",
@@ -332,7 +375,13 @@ class LingqiDatabase(
         ).use { cursor ->
             buildList {
                 while (cursor.moveToNext()) {
-                    val json = JSONObject(crypto.decrypt(cursor.getString(cursor.getColumnIndexOrThrow("encrypted_payload"))))
+                    val decoded = epochPayloadCodec.decode(
+                        cursor.getString(cursor.getColumnIndexOrThrow("encrypted_payload"))
+                    )
+                    if (decoded.requiresRewrite) {
+                        legacyRows += cursor.getLong(cursor.getColumnIndexOrThrow("id")) to decoded.json
+                    }
+                    val json = JSONObject(decoded.json)
                     add(
                         SleepEpoch(
                             startedAt = cursor.getLong(cursor.getColumnIndexOrThrow("started_at")),
@@ -348,6 +397,27 @@ class LingqiDatabase(
                     )
                 }
             }
+        }
+        if (legacyRows.isNotEmpty()) {
+            runCatching { rewriteLegacyEpochPayloads(legacyRows) }
+        }
+        return result
+    }
+
+    private fun rewriteLegacyEpochPayloads(rows: List<Pair<Long, String>>) {
+        writableDatabase.beginTransaction()
+        try {
+            rows.forEach { (rowId, json) ->
+                writableDatabase.update(
+                    "sleep_epochs",
+                    ContentValues().apply { put("encrypted_payload", epochPayloadCodec.encode(json)) },
+                    "id = ?",
+                    arrayOf(rowId.toString())
+                )
+            }
+            writableDatabase.setTransactionSuccessful()
+        } finally {
+            writableDatabase.endTransaction()
         }
     }
 

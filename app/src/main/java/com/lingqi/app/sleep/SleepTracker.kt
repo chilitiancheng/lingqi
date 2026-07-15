@@ -12,23 +12,40 @@ data class SleepTrackingStatus(
     val startedAt: Long = 0L
 )
 
+data class SleepStartRequest(
+    val sessionId: String,
+    val startedAt: Long
+) {
+    fun asTrackingStatus(): SleepTrackingStatus = SleepTrackingStatus(
+        active = true,
+        sessionId = sessionId,
+        startedAt = startedAt
+    )
+}
+
 object SleepTracker {
     internal const val PREFS = "sleep_tracker_state"
     internal const val KEY_ACTIVE = "active"
     internal const val KEY_SESSION_ID = "session_id"
     internal const val KEY_STARTED_AT = "started_at"
 
-    fun startSession(context: Context): String {
+    fun startSession(context: Context): SleepStartRequest {
         val existing = getStatus(context)
-        if (existing.active && existing.sessionId != null) return existing.sessionId
+        if (existing.active && existing.sessionId != null) {
+            return SleepStartRequest(
+                existing.sessionId,
+                existing.startedAt.takeIf { it > 0L } ?: System.currentTimeMillis()
+            )
+        }
         val sessionId = UUID.randomUUID().toString()
+        val startedAt = System.currentTimeMillis()
         val intent = Intent(context, SleepTrackingService::class.java).apply {
             action = SleepTrackingService.ACTION_START
             putExtra(SleepTrackingService.EXTRA_SESSION_ID, sessionId)
-            putExtra(SleepTrackingService.EXTRA_STARTED_AT, System.currentTimeMillis())
+            putExtra(SleepTrackingService.EXTRA_STARTED_AT, startedAt)
         }
         ContextCompat.startForegroundService(context, intent)
-        return sessionId
+        return SleepStartRequest(sessionId, startedAt)
     }
 
     fun stopSession(context: Context) {

@@ -26,6 +26,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -45,6 +46,7 @@ import com.lingqi.app.LingqiApplication
 import com.lingqi.app.data.BreathingCueSound
 import com.lingqi.app.data.LocalDataDeletionCoordinator
 import com.lingqi.app.data.UserPreferences
+import com.lingqi.app.data.UserStats
 import com.lingqi.app.notifications.NotificationPermissionPolicy
 import com.lingqi.app.notifications.ReminderToggleAction
 import com.lingqi.app.reminder.ReminderScheduler
@@ -57,17 +59,28 @@ import com.lingqi.app.ui.components.ScreenHeader
 import com.lingqi.app.ui.components.SectionTitle
 import com.lingqi.app.ui.theme.LingqiMuted
 import com.lingqi.app.ui.theme.LingqiWhite
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 @Composable
 fun ProfileScreen(onBack: () -> Unit) {
     val context = LocalContext.current
     val repository = (context.applicationContext as LingqiApplication).container.repository
-    var preferences by remember { mutableStateOf(repository.preferences()) }
-    var stats by remember { mutableStateOf(repository.stats()) }
+    var preferences by remember { mutableStateOf(UserPreferences()) }
+    var stats by remember { mutableStateOf(UserStats()) }
     var nicknameDialog by remember { mutableStateOf(false) }
     var deleteDialog by remember { mutableStateOf(false) }
     var breathingCueDialog by remember { mutableStateOf(false) }
     var exportContent by remember { mutableStateOf("") }
+
+    LaunchedEffect(Unit) {
+        val loaded = loadProfileData {
+            ProfileData(repository.preferences(), repository.stats())
+        }
+        preferences = loaded.preferences
+        stats = loaded.stats
+    }
 
     fun updatePreferences(next: UserPreferences) {
         preferences = next
@@ -404,8 +417,8 @@ fun ProfileScreen(onBack: () -> Unit) {
             confirmButton = {
                 TextButton(onClick = {
                     deletionCoordinator.deleteAll()
-                    preferences = repository.preferences()
-                    stats = repository.stats()
+                    preferences = UserPreferences()
+                    stats = UserStats()
                     deleteDialog = false
                 }) { Text("彻底删除") }
             },
@@ -413,6 +426,16 @@ fun ProfileScreen(onBack: () -> Unit) {
         )
     }
 }
+
+internal data class ProfileData(
+    val preferences: UserPreferences,
+    val stats: UserStats
+)
+
+internal suspend fun loadProfileData(
+    dispatcher: CoroutineDispatcher = Dispatchers.IO,
+    load: () -> ProfileData
+): ProfileData = withContext(dispatcher) { load() }
 
 @Composable
 fun BreathingCueSoundDialog(

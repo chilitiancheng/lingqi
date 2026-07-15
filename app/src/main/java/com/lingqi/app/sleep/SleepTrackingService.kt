@@ -21,7 +21,6 @@ import android.media.MediaRecorder
 import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
-import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
@@ -46,6 +45,8 @@ class SleepTrackingService : Service(), SensorEventListener {
     private var accumulator = EpochAccumulator()
     private var scheduler: ScheduledExecutorService? = null
     private var audioExecutor = Executors.newSingleThreadExecutor()
+    private val finishExecutor = Executors.newSingleThreadExecutor()
+    private val finishDispatcher = SleepFinishDispatcher(finishExecutor)
     private var audioRecord: AudioRecord? = null
     private var wakeLock: PowerManager.WakeLock? = null
 
@@ -57,8 +58,8 @@ class SleepTrackingService : Service(), SensorEventListener {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
-            ACTION_STOP -> finishSession(discard = false)
-            ACTION_DISCARD -> finishSession(discard = true)
+            ACTION_STOP -> requestFinish(discard = false)
+            ACTION_DISCARD -> requestFinish(discard = true)
             ACTION_START -> {
                 val id = intent.getStringExtra(EXTRA_SESSION_ID) ?: return START_NOT_STICKY
                 val start = intent.getLongExtra(EXTRA_STARTED_AT, System.currentTimeMillis())
@@ -184,7 +185,6 @@ class SleepTrackingService : Service(), SensorEventListener {
         if (!wasTracking) {
             val persisted = SleepTracker.getStatus(this)
             if (!persisted.active || persisted.sessionId == null) {
-                stopSelf()
                 return
             }
             sessionId = persisted.sessionId
@@ -233,10 +233,19 @@ class SleepTrackingService : Service(), SensorEventListener {
             }
         }
         setPersistedStatus(false, null, 0L)
-        releaseWakeLock()
-        stopForeground(STOP_FOREGROUND_REMOVE)
-        sendBroadcast(Intent(ACTION_STATE_CHANGED).setPackage(packageName))
-        stopSelf()
+    }
+
+    private fun requestFinish(discard: Boolean) {
+        finishDispatcher.dispatch {
+            try {
+                finishSession(discard)
+            } finally {
+                releaseWakeLock()
+                stopForeground(STOP_FOREGROUND_REMOVE)
+                sendBroadcast(Intent(ACTION_STATE_CHANGED).setPackage(packageName))
+                stopSelf()
+            }
+        }
     }
 
     private fun acquireWakeLock() {
@@ -266,21 +275,17 @@ class SleepTrackingService : Service(), SensorEventListener {
             Intent(this, SleepTrackingService::class.java).setAction(ACTION_STOP),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-        return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_launcher_foreground)
-            .setContentTitle(getString(R.string.sleep_notification_title))
-            .setContentText("已记录 ${elapsedMinutes} 分钟 · 原始音频不会保存")
-            .setContentIntent(contentIntent)
-            .setOngoing(true)
-            .setOnlyAlertOnce(true)
-            .setCategory(NotificationCompat.CATEGORY_SERVICE)
-            .addAction(0, getString(R.string.sleep_notification_stop), stopIntent)
-            .build()
+        return buildSleepTrackingNotification(
+            context = this,
+            elapsedMinutes = elapsedMinutes,
+            contentIntent = contentIntent,
+            stopIntent = stopIntent
+        )
     }
 
     private fun createNotificationChannel() {
         val channel = NotificationChannel(
-            CHANNEL_ID,
+            SLEEP_NOTIFICATION_CHANNEL_ID,
             getString(R.string.sleep_channel_name),
             NotificationManager.IMPORTANCE_LOW
         ).apply {
@@ -308,6 +313,7 @@ class SleepTrackingService : Service(), SensorEventListener {
             audioRecord = null
         }
         audioExecutor.shutdownNow()
+        finishExecutor.shutdownNow()
         releaseWakeLock()
         if (activeInstance === this) activeInstance = null
         super.onDestroy()
@@ -322,7 +328,6 @@ class SleepTrackingService : Service(), SensorEventListener {
         const val ACTION_STATE_CHANGED = "com.lingqi.app.sleep.STATE_CHANGED"
         const val EXTRA_SESSION_ID = "session_id"
         const val EXTRA_STARTED_AT = "started_at"
-        private const val CHANNEL_ID = "lingqi_sleep_tracking"
         private const val NOTIFICATION_ID = 478
 
         @Volatile

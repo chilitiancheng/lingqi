@@ -56,7 +56,10 @@ import com.lingqi.app.ui.components.ScreenHeader
 import com.lingqi.app.ui.components.SectionTitle
 import com.lingqi.app.ui.theme.LingqiMuted
 import com.lingqi.app.ui.theme.LingqiWhite
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -66,7 +69,7 @@ fun SleepScreen(onBack: () -> Unit, onOpenReport: (String) -> Unit) {
     val context = LocalContext.current
     val repository = (context.applicationContext as LingqiApplication).container.repository
     var status by remember { mutableStateOf(SleepTracker.getStatus(context)) }
-    var history by remember { mutableStateOf(repository.sleepHistory()) }
+    var history by remember { mutableStateOf(emptyList<SleepSession>()) }
     var permissionMessage by remember { mutableStateOf<String?>(null) }
     val checklist = remember { mutableStateListOf(false, false, false) }
     var discardDialog by remember { mutableStateOf(false) }
@@ -78,7 +81,7 @@ fun SleepScreen(onBack: () -> Unit, onOpenReport: (String) -> Unit) {
             ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
         if (microphoneGranted) {
             runCatching { SleepTracker.startSession(context) }
-                .onSuccess { status = SleepTracker.getStatus(context).copy(active = true, sessionId = it) }
+                .onSuccess { status = it.asTrackingStatus() }
                 .onFailure { permissionMessage = "无法启动睡眠检测：${it.message ?: "系统限制"}" }
         } else {
             permissionMessage = "需要麦克风权限才能分析环境声。原始录音不会保存。"
@@ -86,11 +89,12 @@ fun SleepScreen(onBack: () -> Unit, onOpenReport: (String) -> Unit) {
     }
 
     LaunchedEffect(Unit) {
+        history = loadSleepHistory { repository.sleepHistory() }
         while (true) {
             delay(1000)
             val current = SleepTracker.getStatus(context)
             if (wasActive && !current.active) {
-                history = repository.sleepHistory()
+                history = loadSleepHistory { repository.sleepHistory() }
                 history.firstOrNull()?.let { onOpenReport(it.id) }
             }
             wasActive = current.active
@@ -141,6 +145,11 @@ fun SleepScreen(onBack: () -> Unit, onOpenReport: (String) -> Unit) {
         )
     }
 }
+
+internal suspend fun loadSleepHistory(
+    dispatcher: CoroutineDispatcher = Dispatchers.IO,
+    load: () -> List<SleepSession>
+): List<SleepSession> = withContext(dispatcher) { load() }
 
 @Composable
 private fun SleepSetupContent(

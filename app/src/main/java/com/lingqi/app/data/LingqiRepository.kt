@@ -14,12 +14,12 @@ class LingqiRepository(private val database: LingqiDatabase) {
         database.replaceEpochs(session.id, session.epochs)
         database.finishSleepSession(session)
     }
-    fun sleepHistory(): List<SleepSession> = database.sleepSessions()
+    fun sleepHistory(): List<SleepSession> = database.sleepSessionHeaders()
     fun sleepSession(id: String): SleepSession? = database.sleepSession(id)
     fun sleepSessionIncludingOpen(id: String): SleepSession? = database.sleepSessionIncludingOpen(id)
     fun rawEpochs(sessionId: String): List<SleepEpoch> = database.epochs(sessionId)
     fun discardSleep(sessionId: String) = database.deleteSleepSession(sessionId)
-    fun sleepNightCount(): Int = database.sleepSessions(1000).size
+    fun sleepNightCount(): Int = database.completedSleepSessionCount()
 
     fun preferences(): UserPreferences {
         val raw = database.getPreference("user_preferences") ?: return UserPreferences()

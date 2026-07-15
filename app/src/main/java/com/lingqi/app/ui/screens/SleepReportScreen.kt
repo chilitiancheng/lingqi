@@ -15,7 +15,11 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -26,6 +30,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lingqi.app.LingqiApplication
 import com.lingqi.app.data.SleepEpoch
+import com.lingqi.app.data.SleepSession
 import com.lingqi.app.data.SleepStage
 import com.lingqi.app.ui.components.Metric
 import com.lingqi.app.ui.components.ScreenHeader
@@ -38,27 +43,45 @@ import com.lingqi.app.ui.theme.SleepCalibrationText
 import com.lingqi.app.ui.theme.SleepDeep
 import com.lingqi.app.ui.theme.SleepLight
 import com.lingqi.app.ui.theme.SleepRem
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+
+internal const val SLEEP_REPORT_LOADING_TITLE = "睡眠报告"
+internal const val SLEEP_REPORT_LOADING_SUBTITLE = "正在解析本地记录"
 
 @Composable
 fun SleepReportScreen(sessionId: String, onBack: () -> Unit) {
     val context = LocalContext.current
     val repository = (context.applicationContext as LingqiApplication).container.repository
-    val session = remember(sessionId) { repository.sleepSession(sessionId) }
-    if (session == null) {
+    var session by remember(sessionId) { mutableStateOf<SleepSession?>(null) }
+    var loaded by remember(sessionId) { mutableStateOf(false) }
+    LaunchedEffect(sessionId) {
+        session = loadSleepReport { repository.sleepSession(sessionId) }
+        loaded = true
+    }
+    if (!loaded) {
+        Column(Modifier.fillMaxSize().padding(top = 28.dp)) {
+            ScreenHeader(SLEEP_REPORT_LOADING_TITLE, SLEEP_REPORT_LOADING_SUBTITLE, onBack)
+        }
+        return
+    }
+    val loadedSession = session
+    if (loadedSession == null) {
         Column(Modifier.fillMaxSize().padding(top = 28.dp)) {
             ScreenHeader("睡眠报告", "记录不存在或尚未完成", onBack)
         }
         return
     }
-    val epochs = session.epochs
-    val duration = (session.endedAt ?: session.startedAt) - session.startedAt
+    val epochs = loadedSession.epochs
+    val duration = (loadedSession.endedAt ?: loadedSession.startedAt) - loadedSession.startedAt
     val awakeEvents = countAwakeEvents(epochs)
     val averageNoise = epochs.map { it.noiseDb }.takeIf { it.isNotEmpty() }?.average() ?: 0.0
     val confidence = epochs.map { it.confidence }.takeIf { it.isNotEmpty() }?.average() ?: 0.0
-    val date = remember { SimpleDateFormat("M 月 d 日睡眠", Locale.CHINA).format(Date(session.startedAt)) }
+    val date = remember { SimpleDateFormat("M 月 d 日睡眠", Locale.CHINA).format(Date(loadedSession.startedAt)) }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(top = 28.dp),
@@ -69,7 +92,7 @@ fun SleepReportScreen(sessionId: String, onBack: () -> Unit) {
             Column(Modifier.padding(horizontal = 20.dp, vertical = 18.dp)) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Column {
-                        Text("${session.score ?: 0}", color = LingqiWhite, fontSize = 58.sp, fontWeight = FontWeight.ExtraLight)
+                        Text("${loadedSession.score ?: 0}", color = LingqiWhite, fontSize = 58.sp, fontWeight = FontWeight.ExtraLight)
                         Text("睡眠分", color = LingqiMuted, fontSize = 11.sp)
                     }
                     Column(Modifier.padding(top = 12.dp)) {
@@ -77,9 +100,9 @@ fun SleepReportScreen(sessionId: String, onBack: () -> Unit) {
                         Text("总时长", color = LingqiMuted, fontSize = 11.sp, modifier = Modifier.padding(top = 4.dp))
                     }
                 }
-                if (session.calibrationNight <= 3) {
+                if (loadedSession.calibrationNight <= 3) {
                     Text(
-                        "校准第 ${session.calibrationNight}/3 晚 · 当前置信度上限 62%",
+                        "校准第 ${loadedSession.calibrationNight}/3 晚 · 当前置信度上限 62%",
                         color = SleepCalibrationText,
                         fontSize = 11.sp,
                         modifier = Modifier
@@ -105,7 +128,7 @@ fun SleepReportScreen(sessionId: String, onBack: () -> Unit) {
             ) {
                 Metric(awakeEvents.toString(), "清醒次数")
                 Metric("${averageNoise.toInt()} dB", "环境声")
-                Metric("${(session.coverage * 100).toInt()}%", "传感器覆盖")
+                Metric("${(loadedSession.coverage * 100).toInt()}%", "传感器覆盖")
             }
         }
         item {
@@ -119,6 +142,11 @@ fun SleepReportScreen(sessionId: String, onBack: () -> Unit) {
         }
     }
 }
+
+internal suspend fun loadSleepReport(
+    dispatcher: CoroutineDispatcher = Dispatchers.IO,
+    load: () -> SleepSession?
+): SleepSession? = withContext(dispatcher) { load() }
 
 @Composable
 private fun SleepStageChart(epochs: List<SleepEpoch>) {
