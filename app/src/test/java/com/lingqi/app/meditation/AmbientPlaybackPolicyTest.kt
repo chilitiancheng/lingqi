@@ -1,11 +1,17 @@
 package com.lingqi.app.meditation
 
 import com.lingqi.app.data.MeditationKind
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class AmbientPlaybackPolicyTest {
+    @Test
+    fun ambientPlayerUsesFullMediaGain() {
+        assertEquals(1.0f, AMBIENT_PLAYER_GAIN, 0.0f)
+    }
+
     @Test
     fun onlyActiveSoundEnabledGuidedSessionsPlayAmbientAudio() {
         assertTrue(

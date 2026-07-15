@@ -5,6 +5,8 @@ import android.media.AudioAttributes
 import android.media.MediaPlayer
 import com.lingqi.app.data.MeditationKind
 
+internal const val AMBIENT_PLAYER_GAIN = 1.0f
+
 internal object AmbientPlaybackPolicy {
     const val ASSET_PATH = "audio/meditation-relax-sleep-music-346733.mp3"
 
@@ -19,7 +21,10 @@ internal object AmbientPlaybackPolicy {
         !completed
 }
 
-internal class AmbientAudioPlayer(context: Context) {
+internal class AmbientAudioPlayer(
+    context: Context,
+    private val onUnavailable: () -> Unit = {}
+) {
     private val applicationContext = context.applicationContext
     private var player: MediaPlayer? = null
 
@@ -33,6 +38,7 @@ internal class AmbientAudioPlayer(context: Context) {
 
         val current = player ?: createPlayer()?.also { player = it } ?: return
         runCatching { if (!current.isPlaying) current.start() }
+            .onFailure { onUnavailable() }
     }
 
     fun release() {
@@ -60,16 +66,13 @@ internal class AmbientAudioPlayer(context: Context) {
                 )
             }
             created.isLooping = true
-            created.setVolume(AMBIENT_VOLUME, AMBIENT_VOLUME)
+            created.setVolume(AMBIENT_PLAYER_GAIN, AMBIENT_PLAYER_GAIN)
             created.prepare()
             created
         } catch (_: Throwable) {
             runCatching { created.release() }
+            onUnavailable()
             null
         }
-    }
-
-    private companion object {
-        const val AMBIENT_VOLUME = 0.10f
     }
 }
