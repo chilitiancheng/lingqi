@@ -2,39 +2,58 @@ package com.lingqi.app.meditation
 
 import android.content.Context
 import android.media.AudioAttributes
+import android.os.Handler
+import android.os.Looper
 import android.speech.tts.TextToSpeech
+import android.speech.tts.UtteranceProgressListener
 import java.util.Locale
 
-class GuidedVoiceController(context: Context) : TextToSpeech.OnInitListener {
+@Suppress("DEPRECATION")
+class GuidedVoiceController(
+    context: Context,
+    private val onUnavailable: () -> Unit = {}
+) : TextToSpeech.OnInitListener {
     private val tts = TextToSpeech(context.applicationContext, this)
-    private var ready = false
-    private var pending: String? = null
+    private val state = GuidedVoiceState()
+    private val mainHandler = Handler(Looper.getMainLooper())
     private var enabled = true
 
     override fun onInit(status: Int) {
-        ready = status == TextToSpeech.SUCCESS
-        if (ready) {
+        if (status == TextToSpeech.SUCCESS) {
             tts.setAudioAttributes(
                 AudioAttributes.Builder()
                     .setUsage(AudioAttributes.USAGE_MEDIA)
                     .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
                     .build()
             )
-            tts.language = Locale.SIMPLIFIED_CHINESE
+            val languageStatus = tts.setLanguage(Locale.SIMPLIFIED_CHINESE)
+            if (languageStatus < TextToSpeech.LANG_AVAILABLE) {
+                reportUnavailable()
+                return
+            }
             tts.setSpeechRate(0.82f)
             tts.setPitch(0.92f)
-            if (enabled) pending?.let { speak(it) }
-            pending = null
+            tts.setOnUtteranceProgressListener(
+                object : UtteranceProgressListener() {
+                    override fun onStart(utteranceId: String?) = Unit
+                    override fun onDone(utteranceId: String?) = Unit
+                    override fun onError(utteranceId: String?) = reportUnavailable()
+                    override fun onError(utteranceId: String?, errorCode: Int) = reportUnavailable()
+                }
+            )
+            state.markReady()?.takeIf { enabled }?.let(::speakNow)
+        } else {
+            reportUnavailable()
         }
     }
 
     fun speak(text: String) {
         if (!enabled) return
-        if (!ready) {
-            pending = text
-            return
+        when (state.status) {
+            GuidedVoiceStatus.INITIALIZING -> state.enqueueWhileInitializing(text)
+            GuidedVoiceStatus.READY -> speakNow(text)
+            GuidedVoiceStatus.UNAVAILABLE -> Unit
         }
-        tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, "lingqi-guidance")
     }
 
     fun setEnabled(value: Boolean) {
@@ -43,11 +62,23 @@ class GuidedVoiceController(context: Context) : TextToSpeech.OnInitListener {
     }
 
     fun pause() {
-        pending = null
+        state.clearPending()
         tts.stop()
     }
 
     fun shutdown() = tts.shutdown()
+
+    private fun speakNow(text: String) {
+        if (tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, "lingqi-guidance") != TextToSpeech.SUCCESS) {
+            reportUnavailable()
+        }
+    }
+
+    private fun reportUnavailable() {
+        val firstReport = state.status != GuidedVoiceStatus.UNAVAILABLE
+        state.markUnavailable()
+        if (firstReport) mainHandler.post(onUnavailable)
+    }
 }
 
 data class GuidedCue(val fraction: Float, val text: String)

@@ -77,7 +77,8 @@ fun MeditationPlayerScreen(kind: MeditationKind, minutes: Int, onExit: () -> Uni
     val sessionStartedAt = remember { System.currentTimeMillis() }
     val initialPreferences = remember { repository.preferences() }
     val cuePlayer = remember { CuePlayer(context) }
-    val voice = remember { GuidedVoiceController(context) }
+    var voiceUnavailable by remember { mutableStateOf(false) }
+    val voice = remember { GuidedVoiceController(context) { voiceUnavailable = true } }
     val ambientAudio = remember { AmbientAudioPlayer(context) }
     val cues = remember(kind) { guidedCues(kind) }
     var elapsedMillis by remember { mutableLongStateOf(0L) }
@@ -301,6 +302,17 @@ fun MeditationPlayerScreen(kind: MeditationKind, minutes: Int, onExit: () -> Uni
                     }
                 }
             }
+        }
+        if (voiceUnavailable && kind != MeditationKind.BREATH_478) {
+            Text(
+                "中文语音暂不可用，请检查系统文字转语音设置",
+                color = LingqiWhite.copy(alpha = 0.76f),
+                fontSize = 11.sp,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .windowInsetsPadding(WindowInsets.navigationBars)
+                    .padding(start = 28.dp, end = 28.dp, bottom = 92.dp)
+            )
         }
         if (completed) {
             Column(
