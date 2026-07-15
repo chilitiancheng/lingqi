@@ -37,6 +37,7 @@ class GuidedVoiceController(
                 object : UtteranceProgressListener() {
                     override fun onStart(utteranceId: String?) = Unit
                     override fun onDone(utteranceId: String?) = Unit
+                    @Suppress("OVERRIDE_DEPRECATION")
                     override fun onError(utteranceId: String?) = reportUnavailable()
                     override fun onError(utteranceId: String?, errorCode: Int) = reportUnavailable()
                 }
